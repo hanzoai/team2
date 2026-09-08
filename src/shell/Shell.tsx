@@ -1,14 +1,35 @@
 /**
- * OWNED BY THE FRAME AGENT. Scaffold placeholder: the props below are the seam
- * every region writes against, so replace the body and keep the signature.
+ * THE FOUR REGIONS.
  *
- * Four regions, left to right: a fixed icon rail, a fixed navigator, a fluid
- * main panel, and a fixed dismissible aside. Only the main region absorbs a
- * change in width — the reference proves it by clipping its fourth board column
- * rather than reflowing, so main scrolls and the sidebars do not move.
+ *   rail        84   fixed, at every width
+ *   navigator  208   fixed, dragged, a drawer when there is no room
+ *   main         —   the ONLY fluid region: it absorbs every change of width and
+ *                    scrolls its columns rather than reflowing them
+ *   aside      308   fixed, dismissible, over main when there is no room
+ *
+ * Three fixed and one fluid is a FLEX layout, not a percentage split — a
+ * percentage navigator grows with the window and the reference's does not. That
+ * is why this does not reach for `ResizablePanelGroup`, whose panels are shares
+ * of the whole; the one thing it would have brought is a drag, which is `Grip`
+ * below and is twenty lines.
+ *
+ * The two raised panels float on the ground with one seam between them and the
+ * same seam around them. The reference draws three widths there (8, 16, 20); one
+ * value here, because a seam with three widths is three seams.
+ *
+ * WIDTH IS THIS ELEMENT'S, NOT THE WINDOW'S. What a region has to fit in is the
+ * shell's width, which a desktop can make smaller than the viewport and which a
+ * media query cannot see. `onLayout` is the measurement and the window is only
+ * the seed, so the first paint is not one frame of the wrong layout.
  */
-import type { ReactNode } from 'react'
-import { XStack, YStack } from '@hanzo/ui'
+import { Screen, Sheet, SheetContent, XStack, YStack } from '@hanzo/ui'
+import { useRef, useState, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router'
+
+import { hideAside, toggleAside, useAside } from './aside.ts'
+import { ASIDE, INLINE_ASIDE, INLINE_NAV, NAV, NAV_MAX, NAV_MIN, SEAM } from './measure.ts'
+import { Rail } from './Rail.tsx'
+import { round } from '~/theme/theme'
 
 export type ShellProps = {
   /** The navigator region: a panel title, a search, a list. */
@@ -19,17 +40,149 @@ export type ShellProps = {
   aside?: ReactNode
 }
 
-export const Shell = ({ nav, children, aside }: ShellProps) => (
-  <XStack flex={1} bg="$background" gap={8} p={16}>
-    <YStack width={83} shrink={0}>{null}</YStack>
-    <YStack width={209} shrink={0}>{nav}</YStack>
-    <YStack flex={1} minW={0} bg="$panel" rounded={6} overflow="hidden">
-      {children}
-    </YStack>
-    {aside ? (
-      <YStack width={307} shrink={0} bg="$panel" rounded={6} overflow="hidden">
-        {aside}
-      </YStack>
-    ) : null}
-  </XStack>
+export const Shell = ({ nav, children, aside }: ShellProps) => {
+  const { pathname } = useLocation()
+  const go = useNavigate()
+
+  const [width, setWidth] = useState(() =>
+    typeof window === 'undefined' ? INLINE_ASIDE : window.innerWidth,
+  )
+  const [span, setSpan] = useState(NAV)
+  const [drawer, setDrawer] = useState(false)
+  const showing = useAside()
+
+  const wide = width >= INLINE_ASIDE
+  const roomy = width >= INLINE_NAV
+
+  /** What a rail tap means. On a narrow window the surface you are already on
+   *  has no column beside it, so its glyph opens the drawer instead of
+   *  navigating to where you already are. */
+  const reach = (path: string) => {
+    if (!roomy && nav && (pathname === path || pathname.startsWith(`${path}/`))) return setDrawer(true)
+    go(path)
+  }
+
+  return (
+    <Screen bg="$background">
+      <XStack
+        flex={1}
+        minH={0}
+        onLayout={(e: { nativeEvent: { layout: { width: number } } }) =>
+          setWidth(e.nativeEvent.layout.width)
+        }
+      >
+        <Rail
+          notices={!!aside && showing}
+          onNotices={toggleAside}
+          onSurface={reach}
+        />
+
+        {roomy && nav ? (
+          <>
+            <YStack width={span} shrink={0} minH={0} data-parity-key="shell.nav">
+              {nav}
+            </YStack>
+            <Grip value={span} onChange={setSpan} />
+          </>
+        ) : null}
+
+        <XStack flex={1} minW={0} minH={0} p={SEAM} gap={SEAM}>
+          <Panel parity="shell.main">{children}</Panel>
+
+          {aside && showing && wide ? (
+            <YStack width={ASIDE} shrink={0}>
+              <Panel parity="shell.aside">{aside}</Panel>
+            </YStack>
+          ) : null}
+        </XStack>
+      </XStack>
+
+      {/* No room beside main: the aside comes over it, at the width it would
+          have had, so its contents are not a second layout. */}
+      <Sheet open={!!aside && showing && !wide} onOpenChange={hideAside}>
+        <SheetContent side="right" width={ASIDE} p={0} bg="$panel">
+          {aside}
+        </SheetContent>
+      </Sheet>
+
+      {/* No room for the column: the navigator comes over the ground it would
+          have sat on, at the width it would have had. */}
+      <Sheet open={!!nav && drawer && !roomy} onOpenChange={setDrawer}>
+        <SheetContent side="left" width={NAV} p={0} bg="$background">
+          {nav}
+        </SheetContent>
+      </Sheet>
+    </Screen>
+  )
+}
+
+/** A raised panel on the ground. Main and the aside are the same shape. */
+const Panel = ({ parity, children }: { parity: string; children: ReactNode }) => (
+  <YStack
+    flex={1}
+    minW={0}
+    minH={0}
+    bg="$panel"
+    rounded={round.panel}
+    overflow="hidden"
+    data-parity-key={parity}
+  >
+    {children}
+  </YStack>
 )
+
+/**
+ * The navigator's edge, and the app's one resize.
+ *
+ * A hairline you can see, a 17px band you can hit, and arrow keys for anyone not
+ * using a pointer. Pointer capture, because at 1px wide the pointer leaves the
+ * line immediately and a drag that ends there ends on the first move.
+ */
+const Grip = ({ value, onChange }: { value: number; onChange: (n: number) => void }) => {
+  const from = useRef(0)
+  const start = useRef(value)
+  const hold = (n: number) => Math.min(NAV_MAX, Math.max(NAV_MIN, n))
+
+  return (
+    <YStack
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize the navigator"
+      aria-valuenow={value}
+      aria-valuemin={NAV_MIN}
+      aria-valuemax={NAV_MAX}
+      tabIndex={0}
+      width={1}
+      shrink={0}
+      bg="$edge"
+      position="relative"
+      cursor="col-resize"
+      hoverStyle={{ bg: '$soft' }}
+      focusVisibleStyle={{ bg: '$outlineColor' }}
+      onPointerDown={(e: React.PointerEvent<HTMLElement>) => {
+        from.current = e.clientX
+        start.current = value
+        e.currentTarget.setPointerCapture?.(e.pointerId)
+      }}
+      onPointerMove={(e: React.PointerEvent<HTMLElement>) => {
+        if (!e.currentTarget.hasPointerCapture?.(e.pointerId)) return
+        onChange(hold(start.current + e.clientX - from.current))
+      }}
+      onPointerUp={(e: React.PointerEvent<HTMLElement>) =>
+        e.currentTarget.releasePointerCapture?.(e.pointerId)
+      }
+      // gui types a key handler with the platform's own event, which carries no
+      // `key`; on web react-native-web hands the DOM event straight through. The
+      // parameter is stated as what this reads and nothing else, which is the
+      // widest type the handler can take and still be assignable.
+      onKeyDown={(e: { key?: string; shiftKey?: boolean; type?: string }) => {
+        const step = e.shiftKey ? 1 : 8
+        if (e.key === 'ArrowLeft') onChange(hold(value - step))
+        if (e.key === 'ArrowRight') onChange(hold(value + step))
+      }}
+    >
+      {/* The band. 1px is the line; a pointer needs more than that to find it. */}
+      <YStack position="absolute" t={0} b={0} l={-8} r={-8} />
+    </YStack>
+  )
+}

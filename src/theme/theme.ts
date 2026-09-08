@@ -57,16 +57,21 @@ const SLOTS = 6
  * which is the only property a reader actually depends on.
  */
 export const slot = (id: string): number => {
+  const key = id.toLowerCase()
   let h = 0
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0
   return (Math.abs(h) % SLOTS) + 1
 }
 
-/** A chip: its own hue as ink on a tint of itself. */
-export const chip = (id: string) => {
-  const n = slot(id)
-  return { background: `var(--team-tint-${n})`, color: `var(--team-hue-${n})` } as const
-}
+/**
+ * A chip. Its slot's hue as the fill, the ground as the ink.
+ *
+ * One value serves the fill and the dot because the ramp's lightness was chosen
+ * for both; a second, quieter value per slot would be a second thing to keep in
+ * step for no reading a person actually makes.
+ */
+export const chip = (id: string) =>
+  ({ background: `var(--team-hue-${slot(id)})`, color: 'var(--team-chip-ink)' }) as const
 
 /** A mark that carries a colour of its own — a project glyph, a component. */
 export const mark = (id: string) => `var(--team-hue-${slot(id)})` as const
@@ -79,6 +84,20 @@ export const mark = (id: string) => `var(--team-hue-${slot(id)})` as const
  * already makes. Urgent and High carry the alert hue; the rest carry none.
  */
 export const urgent = (priority: number) => priority === 1 || priority === 2
+
+/**
+ * Priority as a chip, and it has two faces because priority has two tiers.
+ *
+ * Priority is ORDERED, so it reads as rank rather than as category, and it must
+ * not spend a slot of the categorical ring saying so — a Low chip that happens
+ * to land on the same hue as the Design label would claim a kinship neither
+ * has. The urgent end carries the alert hue; everything below it carries no
+ * hue at all, which is exactly as much as a reader needs.
+ */
+export const rank = (priority: number) =>
+  urgent(priority)
+    ? ({ background: 'var(--team-urgent)', color: 'var(--team-chip-ink)' } as const)
+    : ({ background: 'var(--team-quiet)', color: paint.mute } as const)
 
 /**
  * Which gui rung each role lands on. Four regions, one answer.
@@ -130,3 +149,13 @@ export const round = {
  * and the navigator's section heads, and to nothing else.
  */
 export const caps = { textTransform: 'uppercase', letterSpacing: 0.08 } as const
+
+/**
+ * The focus ring, stated once for the product.
+ *
+ * A keyboard ring is the one piece of chrome that has to look identical
+ * everywhere — a reader learns it once — and it was already written out
+ * separately in two files before this line existed. Spread it into
+ * `focusVisibleStyle`.
+ */
+export const ring = { outlineColor: '$outlineColor', outlineWidth: 2, outlineStyle: 'solid' } as const

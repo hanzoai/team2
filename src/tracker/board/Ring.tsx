@@ -17,14 +17,14 @@ export const Ring = ({ done, size = 16, width = 2 }: { done: number; size?: numb
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${Math.round(at * 100)}% done`}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--tone-track)" strokeWidth={width} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={ring.track} strokeWidth={width} />
       {at > 0 ? (
         <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="var(--tone-arc)"
+          stroke={ring.arc}
           strokeWidth={width}
           strokeLinecap="round"
           strokeDasharray={`${c * at} ${c}`}

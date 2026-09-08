@@ -37,24 +37,33 @@
   --team-mute: var(--text-tertiary);
   --team-dim: var(--text-disabled);
 
-  /* ——— the categorical ramp. Six slots, equal weight, assigned by `slot()`
-         in theme.ts and never by hand. ——— */
-  --team-hue-1: oklch(0.72 0.12 258); /* indigo */
-  --team-hue-2: oklch(0.72 0.12 300); /* violet */
-  --team-hue-3: oklch(0.72 0.12 350); /* rose   */
-  --team-hue-4: oklch(0.72 0.12 40);  /* coral  */
-  --team-hue-5: oklch(0.72 0.12 90);  /* gold   */
-  --team-hue-6: oklch(0.72 0.12 165); /* teal   */
+  /* ——— the categorical ramp: six slots, assigned by `slot()` in theme.ts and
+         never by hand.
 
-  /* A chip is a tint of its own hue with that hue as ink — the dark-native
-     reading, and it keeps a row of six chips quiet where six filled pills
-     would be the loudest thing on the screen. Derived, so a hue moves both. */
-  --team-tint-1: color-mix(in oklab, var(--team-hue-1) 16%, transparent);
-  --team-tint-2: color-mix(in oklab, var(--team-hue-2) 16%, transparent);
-  --team-tint-3: color-mix(in oklab, var(--team-hue-3) 16%, transparent);
-  --team-tint-4: color-mix(in oklab, var(--team-hue-4) 16%, transparent);
-  --team-tint-5: color-mix(in oklab, var(--team-hue-5) 16%, transparent);
-  --team-tint-6: color-mix(in oklab, var(--team-hue-6) 16%, transparent);
+         One lightness and one chroma with the hue turned, so six categories
+         carry equal weight and none shouts — six colours somebody liked would
+         put two beside each other and make a third the loudest thing on the
+         board. Even hue steps in sRGB do that; in oklch they do not, which is
+         the whole reason the ramp is written this way.
+
+         The lightness is chosen so ONE value serves both readings: bright
+         enough to be a dot on the ground, and light enough to take near-black
+         ink as a chip fill. Two values would be two things to keep in step. ——— */
+  --team-hue-1: oklch(0.78 0.11 258); /* indigo */
+  --team-hue-2: oklch(0.78 0.11 300); /* violet */
+  --team-hue-3: oklch(0.78 0.11 350); /* rose   */
+  --team-hue-4: oklch(0.78 0.11 40);  /* coral  */
+  --team-hue-5: oklch(0.78 0.11 90);  /* gold   */
+  --team-hue-6: oklch(0.78 0.11 165); /* teal   */
+
+  /* What a filled chip is lettered in. The ground, not pure black: a chip is an
+     object on the page and its ink belongs to the same system as everything
+     else's. */
+  --team-chip-ink: var(--background);
+
+  /* A chip with nothing to say in colour. One rung above a card, so it is still
+     an object on it, lettered in the muted ink. */
+  --team-quiet: var(--surface-3);
 
   /* ——— the two accents, and they do different jobs ———
      `accent` is where you are and how many: the active tab, the active
@@ -84,10 +93,11 @@
    states its own column — a touch darker and a touch stronger, which is what a
    hue needs to hold against white rather than against near-black. */
 .light {
-  --team-hue-1: oklch(0.55 0.14 258);
-  --team-hue-2: oklch(0.55 0.14 300);
-  --team-hue-3: oklch(0.55 0.14 350);
-  --team-hue-4: oklch(0.58 0.14 40);
-  --team-hue-5: oklch(0.58 0.14 90);
-  --team-hue-6: oklch(0.55 0.14 165);
+  --team-hue-1: oklch(0.62 0.14 258);
+  --team-hue-2: oklch(0.62 0.14 300);
+  --team-hue-3: oklch(0.62 0.14 350);
+  --team-hue-4: oklch(0.65 0.14 40);
+  --team-hue-5: oklch(0.68 0.14 90);
+  --team-hue-6: oklch(0.62 0.14 165);
+  --team-chip-ink: var(--pure-white);
 }

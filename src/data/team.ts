@@ -9,8 +9,7 @@
  * renaming it at the seam would put two words on one concept for no gain, and
  * the wire is the authority on its own vocabulary.
  */
-import { call } from './api'
-import { token } from './iam'
+import { call, post } from './http.ts'
 
 /** A conversation. `direct` distinguishes a DM from a named channel. */
 export type Room = {
@@ -35,10 +34,8 @@ export type Message = {
   createdOn: number
 }
 
-const auth = token
-
 export const rooms = () =>
-  call<{ rooms: Room[] }>('/v1/team/rooms', { auth }).then((r) => r.rooms ?? [])
+  call<{ rooms: Room[] }>('/v1/team/rooms').then((r: { rooms: Room[] }) => r.rooms ?? [])
 
 export const createRoom = (body: {
   name: string
@@ -46,17 +43,12 @@ export const createRoom = (body: {
   topic?: string
   private?: boolean
   members?: string[]
-}) => call<Room>('/v1/team/rooms', { method: 'POST', body: JSON.stringify(body), auth })
+}) => post<Room>('/v1/team/rooms', body)
 
 export const messages = (room: string, space: string) =>
   call<{ messages: Message[] }>(
     `/v1/team/rooms/${encodeURIComponent(room)}/messages?space=${encodeURIComponent(space)}`,
-    { auth },
-  ).then((r) => r.messages ?? [])
+  ).then((r: { messages: Message[] }) => r.messages ?? [])
 
 export const send = (room: string, space: string, text: string) =>
-  call<Message>(`/v1/team/rooms/${encodeURIComponent(room)}/messages`, {
-    method: 'POST',
-    body: JSON.stringify({ space, text }),
-    auth,
-  })
+  post<Message>(`/v1/team/rooms/${encodeURIComponent(room)}/messages`, { space, text })

@@ -19,7 +19,8 @@ const HINT = 200
  * every provider under it on every navigation.
  *
  * `Doorway` is the one place a stranger is turned around, and it is above the
- * router rather than inside it: a check per screen is a check a new screen
+ * router rather than inside it — and below `Space`, because the last thing it
+ * has to answer for is a session this workspace has no account for: a check per screen is a check a new screen
  * forgets, and the screen it forgets on renders somebody else's board.
  *
  * `Session` and `Space` are LOAD-BEARING and not decoration: every region reads
@@ -38,14 +39,14 @@ export const App = () => (
   <Hanzo>
     <TooltipProvider delay={HINT}>
       <Session>
-        <Doorway>
-          <Space>
-            <Serve />
+        <Space>
+          <Serve />
+          <Doorway>
             <BrowserRouter>
               <Routed />
             </BrowserRouter>
-          </Space>
-        </Doorway>
+          </Doorway>
+        </Space>
       </Session>
     </TooltipProvider>
     <Toaster theme="dark" position="top-center" />

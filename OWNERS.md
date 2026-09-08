@@ -75,23 +75,38 @@ of the two shapes — see `chat/Composer.tsx`.
 
 ## The colour roles
 
-`@hanzo/design` names its surfaces rather than numbering them, and gui resolves
-the names. Use these, never a hex:
+One home: `src/theme/tokens.css` holds the values, `src/theme/theme.ts` holds
+the names. A component imports a name and never writes a colour —
+`theme.test.ts` reads the whole tree and fails on a hex, an `rgb(` or an
+`oklch(` outside the sheet, and fails on a role a component can reach that the
+sheet does not declare (an undeclared custom property resolves to nothing and
+reports no error, which is how a menu ships transparent).
 
 ```
-$background  the app ground — the rail and the navigator sit directly on it
-$panel       a raised sheet — the board, the aside
-$raised      an object on a sheet — a card, an unread row
-$edge        every hairline, one token at one alpha over whatever is beneath it
-$ink         primary text        $quiet  secondary text
-$dim         muted text          $soft   an icon beside a label
-$hover       the faint ground under a pointer
-$bound       a border that has been reached for
+paint.ground   the app — the rail and the navigator sit on it
+paint.panel    a raised sheet — the board, the aside
+paint.card     an object on a sheet — a card, an unread row
+paint.rule     every hairline, one token at one alpha over whatever is beneath
+paint.ink      primary   paint.mute  secondary   paint.dim  the quietest step
+paint.accent   where you are and how many — active tab, count, progress arc
+paint.alert    addressed to you — a mention, the bell, an unread you are named in
+state.backlog / state.todo / state.doing / state.done
+chip(id) mark(id) rank(priority)   the six-slot categorical ring
+rung.* gap.* round.*               which gui `$N` each role lands on
 ```
 
 Three surface rungs and no more. Raising something one level is how this design
 says "this is an object"; a fourth grey is how it stops saying it.
 
-The two ACCENTS have no gui token, because gui does not have this product's
-palette. They come from `theme/theme.ts` as `paint.accent` (where you are, how
-many) and `paint.alert` (addressed to you), through `style` per the rule above.
+Nearly every value defers to an @hanzo/design token, so light and dark come for
+free. The six categorical hues are minted here because design is monochrome by
+charter and a board cannot be; their home is design, and they move there when a
+second surface needs them.
+
+## Entering a state on purpose
+
+`?state=loading|empty|failure|minimal|realistic` stands in for the WHOLE plane,
+not for one region — so the board and the inbox beside it can never be two
+different fictions, and it opens the door as well, because a session is part of
+the plane. One knob. A region that adds a second one has made a screen that
+cannot be captured beside its neighbours.

@@ -1,0 +1,221 @@
+/**
+ * The Inbox: the panel, its tabs, and the list.
+ *
+ * It draws inside the shell's `aside`, which owns the 307 width, the panel
+ * surface and the corner; what is here is the panel's own anatomy.
+ *
+ * The header rhythm is image-derived (÷1.5 from 2048×1138): 12 above the title,
+ * 20 from the title to the tab row, a 38-tall tab row ending ON a hairline that
+ * spans the FULL panel width, and 10 from that rail to the first row. A rail
+ * running edge to edge under a tab row inset by the panel padding is what makes
+ * this read as one component rather than a row of buttons.
+ *
+ * Five states, each entered deliberately and none inheriting a neighbour's
+ * verdict — see fixture.ts. Only the last of them has a reference.
+ */
+import { CopyCheck, List as ListMark, MessageCircleMore, X } from '@hanzogui/lucide-icons-2'
+import {
+  ScrollArea,
+  SizableText,
+  Spinner,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  XStack,
+  YStack,
+} from '@hanzo/ui'
+import { useState, type ReactNode } from 'react'
+
+import { gap, paint, ring, round, rung } from '~/theme/theme'
+import { see, useNotes } from './feed.ts'
+import { inTab, TABS, unseen, type Note, type Tab } from './note.ts'
+import { setOpen } from './open.ts'
+import { Row } from './Row.tsx'
+
+/** title 24img above · title→tabs 30img · tab row 57img · rail→list 15img */
+const HEAD = 12
+const BAND = 20
+const TAB = 38
+const LIST = 10
+const MARK = 20
+const BADGE = 16
+const SHUT = 24
+
+const face = { all: ListMark, task: CopyCheck, chat: MessageCircleMore } as const
+const label = { all: 'All', task: 'Tasks', chat: 'Chat' } as const
+
+/** A quiet middle, for the states the reference never shows. */
+const Say = ({ children }: { children: ReactNode }) => (
+  <YStack flex={1} items="center" justify="center" p={gap.wide} gap={gap.inset}>
+    {children}
+  </YStack>
+)
+
+const Feed = ({ tab }: { tab: Tab }) => {
+  const feed = useNotes()
+
+  if (feed.phase === 'loading')
+    return (
+      <Say>
+        <Spinner />
+      </Say>
+    )
+
+  if (feed.phase === 'failure')
+    return (
+      <Say>
+        <SizableText size={rung.body} color={paint.mute}>
+          The inbox is not answering.
+        </SizableText>
+        <SizableText
+          role="button"
+          tabIndex={0}
+          size={rung.body}
+          color={paint.ink}
+          cursor="pointer"
+          textDecorationLine="underline"
+          onPress={feed.reload}
+          focusVisibleStyle={ring}
+        >
+          Try again
+        </SizableText>
+      </Say>
+    )
+
+  const notes: Note[] = inTab(feed.data ?? [], tab)
+
+  if (notes.length === 0)
+    return (
+      <Say>
+        <SizableText size={rung.body} color={paint.dim}>
+          Nothing here.
+        </SizableText>
+      </Say>
+    )
+
+  return (
+    <ScrollArea flex={1} pt={LIST}>
+      <YStack role="list">
+        {notes.map((n) => (
+          <Row key={n.id} note={n} onSee={see} />
+        ))}
+      </YStack>
+    </ScrollArea>
+  )
+}
+
+export const Inbox = () => {
+  const [tab, setTab] = useState<Tab>('all')
+  const feed = useNotes()
+  const notes = feed.data ?? []
+
+  return (
+    <YStack flex={1} minH={0}>
+      <XStack px={gap.wide} pt={HEAD} items="center" justify="space-between">
+        <SizableText size={rung.title} fontWeight="500" color={paint.ink}>
+          Inbox
+        </SizableText>
+        <XStack
+          role="button"
+          tabIndex={0}
+          aria-label="Close the inbox"
+          onPress={() => setOpen(false)}
+          width={SHUT}
+          height={SHUT}
+          mr={-4}
+          items="center"
+          justify="center"
+          cursor="pointer"
+          rounded={round.field}
+          hoverStyle={{ background: paint.card }}
+          focusVisibleStyle={ring}
+        >
+          <X size={14} color={paint.dim} />
+        </XStack>
+      </XStack>
+
+      <Tabs
+        value={tab}
+        onValueChange={(v: string) => setTab(v as Tab)}
+        orientation="horizontal"
+        flex={1}
+        minH={0}
+        gap={0}
+        mt={BAND}
+      >
+        {/* The rail is the WRAPPER's border rather than the list's, so it spans
+            the panel while the tabs stay inset — and the live tab's own 2px
+            border sits ON it instead of a pixel above it. */}
+        <YStack borderBottomWidth={1} borderColor={paint.rule}>
+          <TabsList
+            height={TAB}
+            self="stretch"
+            justify="flex-start"
+            items="stretch"
+            p={0}
+            pl={gap.tight}
+            gap={gap.tight}
+            bg="transparent"
+            rounded={0}
+          >
+            {TABS.map((t) => {
+              const on = t === tab
+              const Mark = face[t]
+              // All is the union; its count is the sum of the other two and
+              // tells a reader nothing they cannot already see, which is why
+              // the reference badges Tasks and leaves All bare.
+              const count = t === 'all' ? 0 : unseen(notes, t)
+              return (
+                <TabsTrigger
+                  key={t}
+                  value={t}
+                  height="100%"
+                  px={gap.tight}
+                  gap="$1.5"
+                  items="center"
+                  justify="center"
+                  rounded={0}
+                  bg="transparent"
+                  borderBottomWidth={2}
+                  borderColor={on ? paint.accent : 'transparent'}
+                  mb={-1}
+                  activeStyle={{ background: 'transparent' }}
+                  hoverStyle={{ background: 'transparent' }}
+                  focusStyle={{ background: 'transparent' }}
+                  focusVisibleStyle={ring}
+                >
+                  <Mark size={MARK} color={on ? paint.ink : paint.dim} />
+                  <SizableText size={rung.row} color={on ? paint.ink : paint.dim}>
+                    {label[t]}
+                  </SizableText>
+                  {count > 0 ? (
+                    <YStack
+                      minW={BADGE}
+                      height={BADGE}
+                      px={4}
+                      rounded={round.pill}
+                      items="center"
+                      justify="center"
+                      bg={paint.alert}
+                    >
+                      <SizableText size={rung.chip} fontWeight="600" color={paint.panel}>
+                        {count}
+                      </SizableText>
+                    </YStack>
+                  ) : null}
+                </TabsTrigger>
+              )
+            })}
+          </TabsList>
+        </YStack>
+
+        {TABS.map((t) => (
+          <TabsContent key={t} value={t} flex={1} minH={0}>
+            {t === tab ? <Feed tab={t} /> : null}
+          </TabsContent>
+        ))}
+      </Tabs>
+    </YStack>
+  )
+}

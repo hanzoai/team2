@@ -14,6 +14,10 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
+    // `~` is the app root. vite resolves it through `hanzo()`; tsc has to be
+    // told the same thing or every cross-region import is a phantom error.
+    // Relative and without a baseUrl, which TypeScript 7 removed.
+    "paths": { "~/*": ["./src/*"] },
     "skipLibCheck": true,
     "noEmit": true
   },

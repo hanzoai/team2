@@ -31,7 +31,7 @@ const BRANDS: readonly Brand[] = [
     app: 'team2',
     issuer: 'https://hanzo.id',
     title: 'Team',
-    hosts: ['team2.hanzo.ai', 'team.hanzo.ai', 'hanzo.team', 'localhost', '127.0.0.1'],
+    hosts: ['team2.hanzo.ai', 'team2.hanzo.app', 'localhost', '127.0.0.1'],
   },
 ]
 

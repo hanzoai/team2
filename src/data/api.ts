@@ -1,26 +1,32 @@
 /**
- * The addresses this client states for itself.
+ * The addresses this client states for itself, and the one place an API host
+ * appears.
  *
- * Everything under `/v1/team` is relative, because the dev server proxies `/v1`
- * to api.hanzo.ai and a published build is served from a host the gateway
- * already fronts — so an API host appears in no module, and a call cannot end
- * up pointed at a second one.
+ * In development the origin is EMPTY and every call is relative, because the
+ * dev server proxies `/v1` — which is also what makes the issuer's credential
+ * exchange same-origin on a loopback host the issuer will not answer to. A
+ * published build is served from the site plane rather than from behind the
+ * gateway, so it names the one endpoint. The credential is a bearer token, so
+ * the call carries no cookie and needs no credentialed CORS.
  *
- * What cannot be relative is the ISSUER's two full-page trips: the browser
- * leaves, so neither can be a request.
+ * What can never be relative is the ISSUER's two full-page trips: the browser
+ * leaves, so neither of them is a request.
  */
 import { brand } from './brand.ts'
 
-/** The team subsystem, mounted at `/v1/team` on api.hanzo.ai. No `/api/` hop. */
+/** The one endpoint. Everything the estate publishes is under `/v1` on it. */
+const origin = import.meta.env.DEV ? '' : 'https://api.hanzo.ai'
+
+/** The team subsystem, mounted at `/v1/team`. No `/api/` hop. */
 export const team = {
   /** The account JSON-RPC: spaces, space selection, memberships, people. */
-  account: '/v1/team/account',
+  account: `${origin}/v1/team/account`,
   /** Rooms and their messages — the REST half of the chat surface. */
-  rooms: '/v1/team/rooms',
+  rooms: `${origin}/v1/team/rooms`,
   /** Per-space file storage. */
-  files: '/v1/team/files',
+  files: `${origin}/v1/team/files`,
   /** The plan, the seats and the guest cap. */
-  plan: '/v1/team/billing/plan',
+  plan: `${origin}/v1/team/billing/plan`,
 } as const
 
 /** The issuer, for the trips the IAM SDK does not make. */

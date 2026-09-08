@@ -24,21 +24,6 @@ export const Class = {
 const TX_CREATE = 'core:class:TxCreateDoc'
 const TX_REMOVE = 'core:class:TxRemoveDoc'
 
-/**
- * The plane, plus the one thing a WRITE needs that a read does not.
- *
- * The transactor takes a transaction's `modifiedBy` verbatim, so the author is
- * the client's to state and the client has to know it. `Socket` holds it on the
- * entry it opened with; the `Plane` interface does not publish it yet, so this
- * narrows structurally rather than editing that seam. It disappears the day
- * `Plane` names an account.
- */
-export type Signed = Plane & { readonly entry?: { account: string } | null }
-
-/** `hanzo:<account>` — how the platform spells a person in a transaction. */
-export const author = (plane: Signed): string | null =>
-  plane.entry ? `hanzo:${plane.entry.account}` : null
-
 /** A place people talk. A channel has a name; a direct message has members. */
 export type Room = {
   id: string
@@ -155,12 +140,23 @@ export const reactions = async (plane: Plane, ids: string[]): Promise<Reaction[]
   }))
 }
 
+/**
+ * A name as it is SAID, from the way the platform stores one.
+ *
+ * Contact names are held `Last,First` — a sort key, not a greeting. Printed
+ * verbatim it reads "Wolf Sonya", which is a person nobody has met.
+ */
+export const spoken = (stored: string): string => {
+  const [last, first] = stored.split(',')
+  return (first ? `${first.trim()} ${last.trim()}` : last.trim()).replace(/\s+/g, ' ')
+}
+
 /** The roster, so a message can be drawn with a name instead of a uuid. */
 export const people = async (plane: Plane): Promise<Person[]> => {
   const docs = await plane.find<Doc>(Class.person)
   return docs.map((d) => ({
     id: str(d.personUuid) || str(d._id),
-    name: str(d.name).replace(',', ' ').trim(),
+    name: spoken(str(d.name)),
     avatar: str(d.avatar) || undefined,
   }))
 }
@@ -176,7 +172,7 @@ export const people = async (plane: Plane): Promise<Person[]> => {
  * optimistic copy to disagree with the server the first time a write is
  * refused.
  */
-export const say = (plane: Signed, room: Room, text: string): Promise<void> =>
+export const say = (plane: Plane, room: Room, text: string): Promise<void> =>
   plane.write(
     attached(id(), Class.message, room.id, room.id, classOf(room), 'messages', by(plane), {
       message: markup(text),
@@ -184,7 +180,7 @@ export const say = (plane: Signed, room: Room, text: string): Promise<void> =>
   )
 
 /** Reply to a message. A thread is a room whose parent is a message. */
-export const reply = (plane: Signed, room: Room, message: Message, text: string): Promise<void> =>
+export const reply = (plane: Plane, room: Room, message: Message, text: string): Promise<void> =>
   plane.write(
     attached(id(), Class.reply, room.id, message.id, Class.message, 'replies', by(plane), {
       message: markup(text),
@@ -194,7 +190,7 @@ export const reply = (plane: Signed, room: Room, message: Message, text: string)
   )
 
 /** React to a message. */
-export const react = (plane: Signed, room: Room, message: Message, emoji: string): Promise<void> =>
+export const react = (plane: Plane, room: Room, message: Message, emoji: string): Promise<void> =>
   plane.write(
     attached(id(), Class.reaction, room.id, message.id, Class.message, 'reactions', by(plane), {
       emoji,
@@ -203,7 +199,7 @@ export const react = (plane: Signed, room: Room, message: Message, emoji: string
   )
 
 /** Take a reaction back. */
-export const unreact = (plane: Signed, room: Room, reaction: Reaction): Promise<void> =>
+export const unreact = (plane: Plane, room: Room, reaction: Reaction): Promise<void> =>
   plane.write({
     _class: TX_REMOVE,
     objectId: reaction.id,
@@ -215,7 +211,14 @@ export const unreact = (plane: Signed, room: Room, reaction: Reaction): Promise<
 
 const classOf = (r: Room): string => (r.kind === 'direct' ? Class.direct : Class.channel)
 
-const by = (plane: Signed): string => author(plane) ?? ''
+/**
+ * Who a transaction is FROM.
+ *
+ * The transactor takes `modifiedBy` verbatim rather than deriving it from the
+ * session, so the author is the client's to state — and `plane.account` is the
+ * only thing that knows it, being the entry the socket opened with.
+ */
+const by = (plane: Plane): string => plane.account ?? ''
 
 /**
  * A create transaction for a document that hangs off another.

@@ -9,13 +9,14 @@
  * reads as a different product, and it is the one thing about this column
  * somebody will get wrong.
  */
-import { Progress, Separator, SizableText, Tooltip, TooltipContent, TooltipTrigger, XStack, YStack } from '@hanzo/ui'
+import { Separator, SizableText, Tooltip, TooltipContent, TooltipTrigger, XStack, YStack } from '@hanzo/ui'
 import { HanzoMark } from '@hanzo/ui/product'
 import { Bell, Plus } from '@hanzogui/lucide-icons-2'
 import type { ReactNode } from 'react'
 import { useLocation } from 'react-router'
 
 import { useNotices, useTodo } from './counts.ts'
+import { press } from './press.ts'
 import { ADD, GAUGE, GLOW, ICON, MARK, PAD, RAIL, STEP } from './measure.ts'
 import { SURFACES } from './surfaces.ts'
 import { caps, paint, round, rung } from '~/theme/theme'
@@ -61,9 +62,9 @@ export const Rail = ({ notices, onNotices, onSurface }: RailProps) => {
 
       <YStack height={20} />
       <Gauge />
-      <YStack height={28} />
+      <YStack height={16} />
 
-      <Slot label={notices ? 'Hide notices' : 'Show notices'} here={notices} onPress={onNotices}>
+      <Slot label={notices ? 'Hide notices' : 'Show notices'} pressed={notices} onPress={onNotices}>
         <Bell size={ICON} color={notices ? '$ink' : '$soft'} />
         {waiting > 0 ? (
           <YStack
@@ -116,30 +117,46 @@ export const Rail = ({ notices, onNotices, onSurface }: RailProps) => {
   )
 }
 
-const Rule = () => <Separator width={RAIL - PAD * 2} my={12} borderColor="$edge" />
+const Rule = () => <Separator width={RAIL - PAD * 2} my={8} borderColor="$edge" />
 
-/** One place in the icon column: the touch target, the glow, and the glyph. */
-const Slot = ({ label, here, onPress, children }: {
+/**
+ * The value as a line. Two stacks rather than `Progress`, because that component
+ * is a full-width control: it states `width="100%"` and lets its indicator run
+ * past the track, which inside a 60px capsule paints a slab across the rail.
+ */
+const Bar = ({ value }: { value: number }) => (
+  <YStack width="100%" height={4} rounded={round.pill} bg="$edge" overflow="hidden">
+    <YStack width={`${value}%`} height="100%" bg="$ink" />
+  </YStack>
+)
+
+/**
+ * One place in the icon column: the touch target, the glow, and the glyph.
+ *
+ * `here` is a PLACE and `pressed` is a SWITCH, and they are separate because the
+ * bell is not a surface: it turns the aside on and off without going anywhere,
+ * so it announces itself pressed rather than current and it does not take the
+ * glow. The reference agrees — only the surface you are on is lit.
+ */
+const Slot = ({ label, here = false, pressed, onPress, children }: {
   label: string
-  here: boolean
+  here?: boolean
+  pressed?: boolean
   onPress: () => void
   children: ReactNode
 }) => (
   <Tooltip>
     <TooltipTrigger>
       <YStack
-        role="button"
-        tabIndex={0}
-        aria-label={label}
+        {...press(onPress, label)}
         aria-current={here ? 'page' : undefined}
-        cursor="pointer"
+        aria-pressed={pressed}
         width={STEP}
         height={STEP}
         items="center"
         justify="center"
         position="relative"
         rounded={round.field}
-        onPress={onPress}
         focusVisibleStyle={RING}
       >
         {here ? (
@@ -173,33 +190,54 @@ const Gauge = () => {
       rounded="$5"
       borderWidth={1}
       borderColor="$edge"
-      bg="$panel"
+      bg="$background"
       overflow="hidden"
-      px={8}
-      py={10}
+      position="relative"
       aria-label={todo === null ? 'Nothing to do' : `${todo}% to do`}
     >
-      <YStack position="absolute" l={0} r={0} b={0} height={`${todo ?? 0}%`} bg="$hover" pointerEvents="none" />
+      {/* The value, as a level rising from the bottom. It is positioned, and
+          everything else is not, so it paints UNDER the whole face — a
+          positioned sibling paints above static ones whatever the order, which
+          is how this covered the number, the bar and the label at once.
 
-      <XStack items="flex-start" gap={1}>
-        <SizableText fontSize={rung.figure} lineHeight={32} fontWeight="500" color="$ink">
-          {todo ?? '—'}
+          The accent, held back to a wash: "how many" is what the accent is for,
+          and at full strength a level this size is the loudest thing in a
+          column of glyphs. A neutral surface rung is not an option — measured,
+          one step over the ground is invisible at this size. */}
+      <YStack
+        position="absolute"
+        l={0}
+        r={0}
+        b={0}
+        height={`${todo ?? 0}%`}
+        opacity={0.12}
+        pointerEvents="none"
+        style={{ backgroundColor: paint.accent }}
+      />
+
+      <YStack flex={1} z={1} p={6}>
+        <YStack rounded="$4" bg="$panel" borderWidth={1} borderColor="$edge" px={8} py={6}>
+          <XStack items="flex-start" gap={1}>
+            <SizableText fontSize={rung.figure} lineHeight={24} fontWeight="500" color="$ink">
+              {todo ?? '—'}
+            </SizableText>
+            {todo === null ? null : (
+              <SizableText fontSize={rung.chip} lineHeight={13} color="$soft">
+                %
+              </SizableText>
+            )}
+          </XStack>
+
+          <YStack height={6} />
+          <Bar value={todo ?? 0} />
+        </YStack>
+
+        <YStack flex={1} />
+
+        <SizableText {...caps} text="center" fontSize={rung.chip} fontWeight="600" color="$ink">
+          To do
         </SizableText>
-        {todo === null ? null : (
-          <SizableText fontSize={rung.chip} lineHeight={14} color="$soft">
-            %
-          </SizableText>
-        )}
-      </XStack>
-
-      <YStack height={8} />
-      <Progress value={todo ?? 0} height={4} width={GAUGE.width - 32} />
-
-      <YStack flex={1} />
-
-      <SizableText {...caps} fontSize={rung.chip} fontWeight="600" color="$ink">
-        To do
-      </SizableText>
+      </YStack>
     </YStack>
   )
 }

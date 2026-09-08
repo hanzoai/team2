@@ -12,7 +12,7 @@
  * scroll-to-bottom effect: an effect fights the reader who has scrolled up, and
  * it runs one frame late, so the first paint of every room is its middle.
  */
-import { ScrollView, SizableText, Spinner, YStack } from '@hanzo/ui'
+import { SizableText, Spinner, YStack } from '@hanzo/ui'
 import { BackendStateCard, classifyBackend } from '@hanzo/ui/product'
 import { useEffect, useRef } from 'react'
 
@@ -48,13 +48,7 @@ export function List({
   open,
 }: ListProps) {
   if (phase === 'loading') return <Waiting />
-  if (phase === 'failure') {
-    return (
-      <Middle>
-        <BackendStateCard state={classifyBackend(error)} onRetry={onRetry} />
-      </Middle>
-    )
-  }
+  if (phase === 'failure') return <Failed error={error} onRetry={onRetry} />
   if (messages.length === 0) return <Nothing room={room} />
 
   return <Said {...{ messages, people, reactions, me, onReact, onOpen, open }} />
@@ -86,9 +80,20 @@ function Said({
     end.current?.scrollIntoView({ block: 'end' })
   }, [last])
 
+  /**
+   * The scroller is a stack that scrolls rather than `ScrollView`, because
+   * ScrollView interposes a content container this component cannot address —
+   * `contentContainerStyle` is omitted from its props — and that container does
+   * not fill the scroller, so a `min-height: 100%` on anything inside it
+   * resolves against the content's own height and means nothing.
+   *
+   * `margin-top: auto` is the anchor and needs no percentage: in a flex column
+   * with free space the content is pushed to the bottom, and when there is none
+   * the margin collapses and the conversation simply scrolls.
+   */
   return (
-    <ScrollView flex={1} minH={0}>
-      <YStack minH="100%" justify="flex-end" pb={8}>
+    <YStack flex={1} minH={0} style={{ overflowY: 'auto' }}>
+      <YStack style={{ marginTop: 'auto' }} pb={8}>
         {entries(messages).map((e) =>
           e.kind === 'day' ? (
             <Day key={e.id} at={e.at} />
@@ -109,7 +114,7 @@ function Said({
         )}
         <div ref={(n) => void (end.current = n)} />
       </YStack>
-    </ScrollView>
+    </YStack>
   )
 }
 
@@ -131,16 +136,23 @@ const Day = ({ at }: { at: number }) => (
   </YStack>
 )
 
-const Middle = ({ children }: { children: React.ReactNode }) => (
+export const Middle = ({ children }: { children: React.ReactNode }) => (
   <YStack flex={1} minH={0} items="center" justify="center" p={24}>
     {children}
   </YStack>
 )
 
 /** Being read. Says so rather than showing an empty room that is not empty. */
-const Waiting = () => (
+export const Waiting = () => (
   <Middle>
     <Spinner size={16} />
+  </Middle>
+)
+
+/** A read that refused, said in the estate's own words for a refusal. */
+export const Failed = ({ error, onRetry }: { error?: Error; onRetry: () => void }) => (
+  <Middle>
+    <BackendStateCard state={classifyBackend(error)} onRetry={onRetry} />
   </Middle>
 )
 

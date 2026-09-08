@@ -13,6 +13,8 @@
 import { SizableText, XStack, YStack } from '@hanzo/ui'
 import { X } from '@hanzogui/lucide-icons-2'
 
+import { press } from '~/shell'
+
 import type { Message, Person, Reaction, Room } from './chat.ts'
 import { Composer } from './Composer.tsx'
 import { List } from './List.tsx'
@@ -52,16 +54,12 @@ export function Thread({
           Thread
         </SizableText>
         <YStack
-          role="button"
-          tabIndex={0}
-          aria-label="Close the thread"
-          cursor="pointer"
           width={28}
           height={28}
           items="center"
           justify="center"
           rounded="$1"
-          onPress={onClose}
+          {...press(onClose, 'Close the thread')}
           hoverStyle={{ background: '$hover' }}
           focusVisibleStyle={{ outlineColor: '$outlineColor', outlineWidth: 2, outlineStyle: 'solid' }}
         >

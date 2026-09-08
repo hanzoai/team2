@@ -34,8 +34,9 @@ export const RAIL = 84
 export const NAV = 208
 export const NAV_MIN = 168
 export const NAV_MAX = 360
-/** The dismissible right panel. Image 460. */
-export const ASIDE = 308
+/** The dismissible right panel. Image 1568..2040, so 472 — which puts its left
+ *  edge at 1045 in CSS px, where the reference draws it. */
+export const ASIDE = 312
 
 /** Ground showing between the raised panels, and around them. The reference
  *  draws three widths there (8 between, 16 above, 20 outside); one value here,

@@ -14,15 +14,16 @@ import { SizableText, Textarea, XStack, YStack } from '@hanzo/ui'
 import { ArrowUp } from '@hanzogui/lucide-icons-2'
 import { useState } from 'react'
 
+import { press } from '~/shell'
 import { paint } from '~/theme/theme.ts'
 
 /**
  * A key, as both halves of the prop's type see one.
  *
- * `onKeyPress` is typed as an INTERSECTION of a DOM handler and a native one,
- * so a handler has to accept either — which means its parameter must be the
- * wider of the two shapes, not either one of them. A DOM event carries all
- * three fields and a native event carries only the first, hence the optionals.
+ * The handler is typed as an INTERSECTION of a DOM handler and a native one, so
+ * a handler has to accept either — which means its parameter must be the wider
+ * of the two shapes, not either one of them. A DOM event carries all three
+ * fields and a native event carries only the first, hence the optionals.
  */
 type Key = { nativeEvent: { key: string }; shiftKey?: boolean; preventDefault?: () => void }
 
@@ -94,7 +95,14 @@ export function Composer({
         <Textarea
           flex={1}
           unstyled
+          // The primitive defaults to three rows, which outgrew every height
+          // this component asked for. One row, and the height below decides.
+          rows={1}
           height={height}
+          // `Textarea` carries its own `min-height: 64px`, which outranks a
+          // height and made every composer two lines tall whatever was in it.
+          minH={height}
+          maxH={MAX}
           py={PAD}
           borderWidth={0}
           bg="transparent"
@@ -109,7 +117,12 @@ export function Composer({
           onChangeText={setText}
           // Enter sends and Shift+Enter breaks the line, which is what every
           // conversation surface does and therefore what fingers expect.
-          onKeyPress={(e: Key) => {
+          //
+          // `keydown`, not `keypress`. Measured: a `keypress` handler on this
+          // control never ran for Enter, so the key fell through to the
+          // textarea's own default and typed a newline into the field somebody
+          // had just tried to send.
+          onKeyDown={(e: Key) => {
             if (e.nativeEvent.key !== 'Enter' || e.shiftKey) return
             e.preventDefault?.()
             void send()
@@ -117,10 +130,8 @@ export function Composer({
         />
 
         <YStack
-          role="button"
-          tabIndex={0}
-          aria-label="Send"
           aria-disabled={!ready}
+          {...press(() => void send(), 'Send')}
           cursor={ready ? 'pointer' : 'default'}
           width={32}
           height={32}
@@ -130,7 +141,6 @@ export function Composer({
           style={{ background: ready ? paint.accent : undefined }}
           bg={ready ? undefined : '$hover'}
           opacity={ready ? 1 : 0.5}
-          onPress={() => void send()}
           focusVisibleStyle={{ outlineColor: '$outlineColor', outlineWidth: 2, outlineStyle: 'solid' }}
         >
           <ArrowUp size={17} color={ready ? '$background' : '$soft'} />

@@ -15,13 +15,15 @@
 import { SizableText, Spinner, YStack } from '@hanzo/ui'
 import { Hash, Lock } from '@hanzogui/lucide-icons-2'
 import { useState } from 'react'
+import { useLocation } from 'react-router'
 
 import { PAD } from '~/shell/measure.ts'
-import { Find, Group, Roll, Row, Rule } from '~/shell'
+import { Find, Group, Nav as Column, Roll, Row, Rule, surfaceAt } from '~/shell'
 import type { Room } from './chat.ts'
 import { useRooms } from './read.ts'
 
 export function Channels() {
+  const { pathname } = useLocation()
   const [query, setQuery] = useState('')
   const load = useRooms()
   const all = load.data ?? []
@@ -31,7 +33,7 @@ export function Channels() {
   const directs = shown.filter((r) => r.kind === 'direct')
 
   return (
-    <>
+    <Column title={surfaceAt(pathname)?.label ?? 'Chat'}>
       <Find value={query} onChange={setQuery} />
       <YStack height={24} />
       <Rule />
@@ -73,7 +75,7 @@ export function Channels() {
           </>
         ) : null}
       </Roll>
-    </>
+    </Column>
   )
 }
 
@@ -86,7 +88,7 @@ export function Channels() {
  * channel called that.
  */
 const Line = ({ room }: { room: Room }) => (
-  <Row to={`/chat/c/${room.id}`} icon={<Glyph room={room} />}>
+  <Row to={`/chat/${room.id}`} icon={<Glyph room={room} />}>
     {room.name}
   </Row>
 )

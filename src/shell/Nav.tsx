@@ -18,17 +18,35 @@ import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router'
 
 import { FIELD, ICON, LABEL, LEAF, PAD, ROW, SPINE } from './measure.ts'
+import { press } from './press.ts'
 import { caps, round, rung } from '~/theme/theme'
 
 /** The system's ring, stated once for the column. */
 const RING = { outlineColor: '$outlineColor', outlineWidth: 2, outlineStyle: 'solid' } as const
 
+/**
+ * A row's axis, for the one row that is an anchor.
+ *
+ * `asChild` hands gui's styles to the element you wrote, but not the frame's own
+ * defaults, and a stack's direction is one of those: measured, the anchor came
+ * out `flex-direction: column`, so the glyph sat above the label and a 36px row
+ * carried 56px of content. Stating it as a style rather than as a prop is what
+ * reaches the rendered element — a `flexDirection` prop is dropped on the same
+ * path the default is.
+ */
+const ROW_AXIS = { flexDirection: 'row' } as const
+
 /** The band between the title, the field and the first row. Image 34–35. */
 const BAND = 24
 
+/** The navigator's own top inset. It sits on the GROUND rather than on a panel,
+ *  so it takes the panel's seam on itself: image 30 to the title's text box
+ *  against 18 inside the aside, which is that seam and not a second rhythm. */
+const TOP = 24
+
 /** The navigator's own chrome: its title, then whatever the surface puts in it. */
 export const Nav = ({ title, children }: { title: string; children: ReactNode }) => (
-  <YStack flex={1} minH={0} pt={PAD} pb={PAD}>
+  <YStack flex={1} minH={0} pt={TOP} pb={PAD}>
     <SizableText px={PAD} fontSize={rung.title} fontWeight="500" color="$ink">
       {title}
     </SizableText>
@@ -122,6 +140,7 @@ export const Row = ({ to, icon, children, indent }: {
   return (
     <XStack
       asChild
+      style={ROW_AXIS}
       height={indent ? LEAF : ROW}
       items="center"
       gap={8}
@@ -159,17 +178,14 @@ export const Fold = ({ icon, children, open, onPress }: {
   onPress: () => void
 }) => (
   <XStack
-    role="button"
-    tabIndex={0}
+    {...press(onPress)}
     aria-expanded={open}
-    cursor="pointer"
     height={ROW}
     items="center"
     gap={8}
     px={PAD}
     mx={4}
     rounded={round.field}
-    onPress={onPress}
     hoverStyle={{ bg: '$hover' }}
     focusVisibleStyle={RING}
   >

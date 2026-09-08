@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage, RelativeTime, SizableText, XStack,
 import { PAD } from '~/shell/measure.ts'
 import { chip, gap, paint, ring, round, rung } from '~/theme/theme'
 import type { Note, Span } from './note.ts'
-import { press } from './press.ts'
+import { press } from '~/shell'
 
 /** avatar ⌀52img · line pitch 32img · dot ⌀13img · meta 40img below line 2 */
 const FACE = 36
@@ -73,11 +73,7 @@ export const Row = ({ note, onSee }: RowProps) => (
   <XStack
     data-parity-key="inbox.row"
     data-seen={note.seen ? 'yes' : 'no'}
-    role="button"
-    tabIndex={0}
-    aria-label={note.line.map((s) => s.text).join('')}
-    {...press(() => onSee(note.id))}
-    cursor="pointer"
+    {...press(() => onSee(note.id), note.line.map((s) => s.text).join(''))}
     px={PAD}
     py={gap.inset}
     gap={gap.tight}

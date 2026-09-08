@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage, SizableText, XStack, YStack } from
 import { MessageSquare, SmilePlus } from '@hanzogui/lucide-icons-2'
 
 import { paint } from '~/theme/theme.ts'
+import { press } from '~/shell'
 
 import type { Message, Person, Reaction } from './chat.ts'
 import { clock } from './group.ts'
@@ -151,13 +152,10 @@ function Said({
 
       {message.replies > 0 ? (
         <XStack
-          role="button"
-          tabIndex={0}
-          cursor="pointer"
           items="center"
           gap={5}
           pt={4}
-          onPress={() => onOpen(message)}
+          {...press(() => onOpen(message))}
         >
           <MessageSquare size={13} style={{ color: paint.accent }} />
           <SizableText fontSize="$1" style={{ color: paint.accent }}>
@@ -200,10 +198,6 @@ const Control = ({
   children: React.ReactNode
 }) => (
   <YStack
-    role="button"
-    tabIndex={0}
-    aria-label={label}
-    cursor="pointer"
     width={26}
     height={26}
     items="center"
@@ -212,7 +206,7 @@ const Control = ({
     bg="$panel"
     borderWidth={1}
     borderColor="$edge"
-    onPress={onPress}
+    {...press(onPress, label)}
     hoverStyle={{ background: '$hover' }}
     focusVisibleStyle={{ outlineColor: '$outlineColor', outlineWidth: 2, outlineStyle: 'solid' }}
   >
@@ -233,10 +227,7 @@ const Chip = ({
   onPress: () => void
 }) => (
   <XStack
-    role="button"
-    tabIndex={0}
     aria-pressed={mine}
-    cursor="pointer"
     height={22}
     items="center"
     gap={4}
@@ -245,7 +236,7 @@ const Chip = ({
     borderWidth={1}
     borderColor={mine ? '$bound' : '$edge'}
     bg={mine ? '$hover' : '$raised'}
-    onPress={onPress}
+    {...press(onPress)}
     hoverStyle={{ borderColor: '$bound' }}
     focusVisibleStyle={{ outlineColor: '$outlineColor', outlineWidth: 2, outlineStyle: 'solid' }}
   >

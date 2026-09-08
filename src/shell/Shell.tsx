@@ -26,7 +26,7 @@ import { Screen, Sheet, SheetContent, XStack, YStack } from '@hanzo/ui'
 import { useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
-import { hideAside, toggleAside, useAside } from './aside.ts'
+import { toggleAside, useAside } from './aside.ts'
 import { ASIDE, INLINE_ASIDE, INLINE_NAV, NAV, NAV_MAX, NAV_MIN, SEAM } from './measure.ts'
 import { Rail } from './Rail.tsx'
 import { round } from '~/theme/theme'
@@ -49,6 +49,15 @@ export const Shell = ({ nav, children, aside }: ShellProps) => {
   )
   const [span, setSpan] = useState(NAV)
   const [drawer, setDrawer] = useState(false)
+  /**
+   * An overlay has to be ASKED FOR. The remembered `showing` is about the panel
+   * beside main; inheriting it at a width where the panel is an overlay opened a
+   * modal over the whole app on arrival — measured: the scrim swallowed every
+   * click on the rail, so the way out of a screen nobody had asked for was
+   * covered by the screen itself. So the overlay has its own answer, it starts
+   * closed, and only the bell opens it.
+   */
+  const [over, setOver] = useState(false)
   const showing = useAside()
 
   const wide = width >= INLINE_ASIDE
@@ -72,8 +81,8 @@ export const Shell = ({ nav, children, aside }: ShellProps) => {
         }
       >
         <Rail
-          notices={!!aside && showing}
-          onNotices={toggleAside}
+          notices={!!aside && (wide ? showing : over)}
+          onNotices={() => (wide ? toggleAside() : setOver(!over))}
           onSurface={reach}
         />
 
@@ -86,7 +95,11 @@ export const Shell = ({ nav, children, aside }: ShellProps) => {
           </>
         ) : null}
 
-        <XStack flex={1} minW={0} minH={0} p={SEAM} gap={SEAM}>
+        {/* Ground above, below, right and between — and NOT on the left, where
+            main butts the navigator. That is what the reference draws (its
+            navigator ends at 439 and its board begins at 440), and it is what
+            gives main its width back. */}
+        <XStack flex={1} minW={0} minH={0} pt={SEAM} pb={SEAM} pr={SEAM} gap={SEAM}>
           <Panel parity="shell.main">{children}</Panel>
 
           {aside && showing && wide ? (
@@ -99,7 +112,7 @@ export const Shell = ({ nav, children, aside }: ShellProps) => {
 
       {/* No room beside main: the aside comes over it, at the width it would
           have had, so its contents are not a second layout. */}
-      <Sheet open={!!aside && showing && !wide} onOpenChange={hideAside}>
+      <Sheet open={!!aside && !wide && over} onOpenChange={setOver}>
         <SheetContent side="right" width={ASIDE} p={0} bg="$panel">
           {aside}
         </SheetContent>
@@ -141,6 +154,14 @@ const Panel = ({ parity, children }: { parity: string; children: ReactNode }) =>
 const Grip = ({ value, onChange }: { value: number; onChange: (n: number) => void }) => {
   const from = useRef(0)
   const start = useRef(value)
+  /** Whether this grip is being dragged. Pointer CAPTURE cannot answer that
+   *  here: gui hands the handler its own event, whose `currentTarget` need not
+   *  be a DOM node, so `setPointerCapture` is a silent no-op and
+   *  `hasPointerCapture` answers undefined — measured, and it made every drag
+   *  return on its first move while the arrow keys worked. The capture is still
+   *  requested, because when it lands the pointer may leave the 17px band and
+   *  the drag survives. */
+  const pulling = useRef(false)
   const hold = (n: number) => Math.min(NAV_MAX, Math.max(NAV_MIN, n))
 
   return (
@@ -160,17 +181,22 @@ const Grip = ({ value, onChange }: { value: number; onChange: (n: number) => voi
       hoverStyle={{ bg: '$soft' }}
       focusVisibleStyle={{ bg: '$outlineColor' }}
       onPointerDown={(e: React.PointerEvent<HTMLElement>) => {
+        pulling.current = true
         from.current = e.clientX
         start.current = value
         e.currentTarget.setPointerCapture?.(e.pointerId)
       }}
       onPointerMove={(e: React.PointerEvent<HTMLElement>) => {
-        if (!e.currentTarget.hasPointerCapture?.(e.pointerId)) return
+        if (!pulling.current) return
         onChange(hold(start.current + e.clientX - from.current))
       }}
-      onPointerUp={(e: React.PointerEvent<HTMLElement>) =>
+      onPointerUp={(e: React.PointerEvent<HTMLElement>) => {
+        pulling.current = false
         e.currentTarget.releasePointerCapture?.(e.pointerId)
-      }
+      }}
+      onPointerCancel={() => {
+        pulling.current = false
+      }}
       // gui types a key handler with the platform's own event, which carries no
       // `key`; on web react-native-web hands the DOM event straight through. The
       // parameter is stated as what this reads and nothing else, which is the

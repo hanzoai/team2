@@ -18,16 +18,16 @@ import { useParams } from 'react-router'
 
 import { invalidate } from '~/data/query.ts'
 import { useSpace } from '~/data/space.tsx'
-import { author, react, reply, say, unreact, type Message, type Room, type Signed } from './chat.ts'
+import { react, reply, say, unreact, type Message, type Room } from './chat.ts'
 import { Composer } from './Composer.tsx'
-import { List } from './List.tsx'
+import { Failed, List, Middle, Waiting } from './List.tsx'
 import { People } from './People.tsx'
 import { useLive, useMessages, usePeople, useReactions, useReplies, useRooms } from './read.ts'
 import { Thread } from './Thread.tsx'
 import { tally } from './Run.tsx'
 
 export function Chat() {
-  const { room: id } = useParams()
+  const { id } = useParams()
   const { plane } = useSpace()
   const rooms = useRooms()
   const room = useMemo(() => (rooms.data ?? []).find((r) => r.id === id) ?? null, [rooms.data, id])
@@ -43,7 +43,7 @@ export function Chat() {
   const parent = messages.find((m) => m.id === thread) ?? null
   const answers = useReplies(parent?.id ?? null)
 
-  const me = plane ? (author(plane as Signed) ?? '') : ''
+  const me = plane?.account ?? ''
   const people = roster.data ?? []
   const reactions = feelings.data ?? []
 
@@ -60,16 +60,22 @@ export function Chat() {
       const held = tally(reactions.filter((r) => r.message === message.id)).find((g) => g.emoji === emoji)
       const mine = reactions.find((r) => r.message === message.id && r.emoji === emoji && r.by === me)
       void (held && mine
-        ? unreact(plane as Signed, room, mine)
-        : react(plane as Signed, room, message, emoji)
+        ? unreact(plane, room, mine)
+        : react(plane, room, message, emoji)
       ).then(() => invalidate('chat:reactions:'))
     },
     [plane, room, reactions, me],
   )
 
+  // The four answers before there is a room, and they are four because they
+  // are four different facts. Rendering an empty panel for the middle two —
+  // which is what one `!room` guard does — makes a screen that is still
+  // reading and a screen that refused indistinguishable from a room with
+  // nothing in it, and the reader is left to guess which.
   if (!id) return <Pick />
-  if (rooms.phase === 'ready' && !room) return <Gone />
-  if (!room || !plane) return <YStack flex={1} />
+  if (rooms.phase === 'failure') return <Failed error={rooms.error} onRetry={rooms.reload} />
+  if (rooms.phase === 'loading' || !plane) return <Waiting />
+  if (!room) return <Gone />
 
   return (
     <XStack flex={1} minH={0}>
@@ -92,7 +98,7 @@ export function Chat() {
 
         <Composer
           placeholder={room.kind === 'direct' ? `Message ${room.name}` : `Message #${room.name}`}
-          onSend={(text) => say(plane as Signed, room, text)}
+          onSend={(text) => say(plane, room, text)}
         />
       </YStack>
 
@@ -109,7 +115,7 @@ export function Chat() {
           onClose={() => setThread(null)}
           onRetry={answers.reload}
           onReact={onReact}
-          onSend={(text) => reply(plane as Signed, room, parent, text)}
+          onSend={(text) => reply(plane, room, parent, text)}
         />
       ) : null}
     </XStack>
@@ -171,8 +177,3 @@ const Gone = () => (
   </Middle>
 )
 
-const Middle = ({ children }: { children: React.ReactNode }) => (
-  <YStack flex={1} items="center" justify="center" p={24}>
-    {children}
-  </YStack>
-)

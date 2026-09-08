@@ -32,7 +32,7 @@ import { PAD } from '~/shell/measure.ts'
 import { gap, paint, ring, round, rung } from '~/theme/theme'
 import { see, useNotes } from './feed.ts'
 import { inTab, TABS, unseen, type Note, type Tab } from './note.ts'
-import { press } from './press.ts'
+import { press } from '~/shell'
 import { Row } from './Row.tsx'
 
 /** title 24img above · title→tabs 30img · tab row 57img · rail→list 15img */
@@ -74,11 +74,8 @@ const Feed = ({ tab }: { tab: Tab }) => {
           The inbox is not answering.
         </SizableText>
         <SizableText
-          role="button"
-          tabIndex={0}
           size={rung.body}
           color={paint.ink}
-          cursor="pointer"
           textDecorationLine="underline"
           {...press(feed.reload)}
           focusVisibleStyle={ring}
@@ -123,15 +120,11 @@ export const Inbox = () => {
         </SizableText>
         <XStack
           data-parity-key="inbox.close"
-          role="button"
-          tabIndex={0}
-          aria-label="Close the inbox"
-          {...press(hideAside)}
+          {...press(hideAside, 'Close the inbox')}
           width={SHUT}
           height={SHUT}
           items="center"
           justify="center"
-          cursor="pointer"
           rounded={round.field}
           hoverStyle={{ background: paint.card }}
           focusVisibleStyle={ring}

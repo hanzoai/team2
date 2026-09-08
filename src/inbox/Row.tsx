@@ -138,12 +138,16 @@ export const Row = ({ note, onSee }: RowProps) => (
             style={{ fontSize: 'inherit', lineHeight: 'inherit', color: 'inherit', whiteSpace: 'nowrap' }}
           />
         </SizableText>
-        <SizableText size={rung.small} lineHeight={META} color={paint.dim}>
-          •
-        </SizableText>
-        <SizableText size={rung.small} lineHeight={META} color={paint.dim} numberOfLines={1}>
-          {note.place}
-        </SizableText>
+        {note.place ? (
+          <>
+            <SizableText size={rung.small} lineHeight={META} color={paint.dim}>
+              •
+            </SizableText>
+            <SizableText size={rung.small} lineHeight={META} color={paint.dim} numberOfLines={1}>
+              {note.place}
+            </SizableText>
+          </>
+        ) : null}
       </XStack>
     </YStack>
 

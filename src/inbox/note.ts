@@ -43,8 +43,14 @@ export type Note = {
   quote?: Span[]
   /** Unix MILLISECONDS — the unit `teamMessage.createdOn` already uses. */
   at: number
-  /** Where it happened: a project, or a channel. */
-  place: string
+  /**
+   * Where it happened: a project, or a channel.
+   *
+   * Optional, because not every notification happens somewhere nameable and a
+   * source that cannot name one must be able to say so. A row with no place
+   * drops the separator with it rather than painting a bullet after nothing.
+   */
+  place?: string
   seen: boolean
 }
 

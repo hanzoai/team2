@@ -125,6 +125,17 @@ export const sample = (now: number = Date.now()): Note[] => [
     place: 'Next Platform',
     seen: true,
   },
+  {
+    // NO PLACE. Not every notification happens somewhere nameable, and the live
+    // mapping cannot name one yet — so the meta line has to be a time alone
+    // rather than a time, a bullet and a gap.
+    id: 'n10',
+    kind: 'task',
+    actor: warren,
+    line: [by(warren), { text: ' invited you to the workspace' }],
+    at: now - 9 * DAY,
+    seen: true,
+  },
 ]
 
 /** One unread task and nothing else — the populated-minimal state. */

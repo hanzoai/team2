@@ -68,6 +68,12 @@ test('reading one clears exactly one', () => {
   assert.equal(rows.find((n) => n.id === 'n1')!.seen, false, 'the original is untouched')
 })
 
+test('a row can have no place, and the meta is then a time alone', () => {
+  const bare = rows.find((n) => n.place === undefined)
+  assert.ok(bare, 'the fixture carries one')
+  assert.equal(rows.filter((n) => n.place).length, rows.length - 1)
+})
+
 test('populated-minimal is one unread row, not an empty list', () => {
   const one = minimal(NOW)
   assert.equal(one.length, 1)

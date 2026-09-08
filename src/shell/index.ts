@@ -1,1 +1,6 @@
-export { Shell, type ShellProps } from './Shell'
+export { Shell, type ShellProps } from './Shell.tsx'
+export { Nav, Find, Rule, Group, Row, Fold, Spine, Roll } from './Nav.tsx'
+export { SURFACES, surfaceAt, type Surface } from './surfaces.ts'
+export { VIEWS, isView, useView, viewPath, type View } from './address.ts'
+export { setNotices, useNotices, setTodo, useTodo } from './counts.ts'
+export { useAside, showAside, hideAside, toggleAside } from './aside.ts'

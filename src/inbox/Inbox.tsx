@@ -27,10 +27,10 @@ import {
 } from '@hanzo/ui'
 import { useState, type ReactNode } from 'react'
 
+import { hideAside } from '~/shell/aside.ts'
 import { gap, paint, ring, round, rung } from '~/theme/theme'
 import { see, useNotes } from './feed.ts'
 import { inTab, TABS, unseen, type Note, type Tab } from './note.ts'
-import { setOpen } from './open.ts'
 import { Row } from './Row.tsx'
 
 /** title 24img above · title→tabs 30img · tab row 57img · rail→list 15img */
@@ -120,7 +120,7 @@ export const Inbox = () => {
           role="button"
           tabIndex={0}
           aria-label="Close the inbox"
-          onPress={() => setOpen(false)}
+          onPress={hideAside}
           width={SHUT}
           height={SHUT}
           mr={-4}

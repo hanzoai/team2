@@ -45,6 +45,21 @@ export const serve = (next: Source) => {
 /** The feed, in three phases. A screen never renders rows from `?? []`. */
 export const useNotes = (): Read<Note[]> => useRead<Note[]>(CELL, () => source.list())
 
+/**
+ * How many are unread, across every tab.
+ *
+ * The rail paints a mark on its bell from this number and the shell publishes
+ * the sink it goes in (`setNotices`), so neither the rail nor this panel
+ * imports the other. It is a hook rather than a report from inside the panel,
+ * because the bell has to be right while the panel is CLOSED — and a count
+ * that only moved while the panel was open would be a stale mark exactly when
+ * somebody is relying on it.
+ */
+export const useUnseen = (): number => {
+  const feed = useNotes()
+  return (feed.data ?? []).reduce((n, note) => n + (note.seen ? 0 : 1), 0)
+}
+
 /** Reading one clears it. */
 export const see = (id: string) => {
   const now = held<Note[]>(CELL)

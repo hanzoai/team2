@@ -149,9 +149,10 @@ export const Inbox = () => {
         gap={0}
         mt={BAND}
       >
-        {/* The rail is the WRAPPER's border rather than the list's, so it spans
-            the panel while the tabs stay inset — and the live tab's own 2px
-            border sits ON it instead of a pixel above it. */}
+        {/* The rail is the WRAPPER's border rather than the list's, so it runs
+            edge to edge under a tab row that is inset by the panel padding.
+            That is the thing that makes this read as one component instead of a
+            row of buttons, and it is measured: 460 lit of a 460-wide panel. */}
         <YStack data-parity-key="inbox.rail" borderBottomWidth={1} borderColor={paint.rule}>
           <TabsList
             height={TAB}
@@ -189,7 +190,6 @@ export const Inbox = () => {
                   bg="transparent"
                   borderBottomWidth={2}
                   borderColor={on ? paint.accent : 'transparent'}
-                  mb={-1}
                   activeStyle={{ background: 'transparent' }}
                   hoverStyle={{ background: 'transparent' }}
                   focusStyle={{ background: 'transparent' }}

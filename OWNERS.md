@@ -6,7 +6,8 @@ never reformat a file you do not own; commit only your own paths.
 | path | owner | what it is |
 |---|---|---|
 | `src/shell/**` | frame | the rail, the navigator frame, the panel geometry, the aside |
-| `src/tracker/**` | board | the Issues board: breadcrumb, tabs, columns, cards, inbox |
+| `src/tracker/**` | board | the Issues board: breadcrumb, tabs, columns, cards |
+| `src/inbox/**` | inbox | the aside: its tabs, its rows, and the feed behind them |
 | `src/chat/**` | chat | channels, the message view, the composer |
 | `src/data/**` | data | the one client: HTTP over `/v1/team/*` and the transactor socket |
 | root config, `src/main.tsx`, `src/app.tsx`, `src/routes.tsx`, `src/theme/**` | scaffold | shared; change by agreement, keep the signatures |

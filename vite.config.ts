@@ -30,4 +30,48 @@ const fallback = {
   },
 }
 
-export default hanzo({ plugins: [react(), fallback] }, { root: import.meta.dirname })
+/**
+ * The dev proxy, and it is load-bearing rather than a convenience.
+ *
+ * `src/data` addresses `/v1` relatively so that no module in this app learns an
+ * API host; without this the dev server answers its own index.html for every
+ * call and a JSON parse fails somewhere far from the cause. It also makes the
+ * issuer's credential exchange SAME-ORIGIN, which is what lets sign-in happen
+ * in place on a loopback host that hanzo.id does not answer with
+ * `Access-Control-Allow-Credentials`.
+ */
+const API = 'https://api.hanzo.ai'
+
+const config = hanzo(
+  {
+    plugins: [react(), fallback],
+    server: {
+      port: 3095,
+      // Reachable by LAN name in dev; vite 8 refuses an unlisted Host by
+      // default. Dev only — a built app is static and has no host allowlist.
+      allowedHosts: true,
+      proxy: { '/v1': { target: API, changeOrigin: true } },
+    },
+  },
+  { root: import.meta.dirname },
+)
+
+/**
+ * Dependency optimization is a SECOND resolution pass and inherits nothing from
+ * the first, so it has to be told the same thing: on the web a react-native
+ * package's `.web.js` sibling comes first. Left out, the optimizer follows
+ * react-native-svg's fabric components into react-native's Flow source and the
+ * DEV SERVER dies at startup — while `vite build`, which uses the resolver
+ * above, succeeds, so nothing warns you until you try to develop.
+ *
+ * The list is read back from the config rather than restated: two copies of an
+ * extension order is how one of them silently stops matching the other.
+ */
+export default {
+  ...config,
+  optimizeDeps: {
+    rollupOptions: {
+      resolve: { extensions: (config.resolve as { extensions: string[] }).extensions },
+    },
+  },
+}

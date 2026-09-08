@@ -43,6 +43,23 @@ export const iam = (): IAM => {
     redirectUri: `${here}${callbackPath}`,
     postLogoutRedirectUri: `${here}${loginPath}`,
     scope,
+    /**
+     * Where the credential POST and the token exchange go.
+     *
+     * Signing in without leaving the page means a cross-origin POST to the
+     * issuer carrying `credentials: include`, and a browser drops such a
+     * response unless the issuer answers `Access-Control-Allow-Credentials`.
+     * Measured at hanzo.id: `https://hanzo.team` is answered with it and
+     * `https://team2.hanzo.ai` and `http://localhost` are answered without —
+     * so on those two the embedded form fails and the redirect is the only way
+     * in.
+     *
+     * The dev server proxies `/v1`, which makes the whole exchange same-origin
+     * and takes CORS out of it entirely. In a published build there is nothing
+     * to proxy through, so it addresses the issuer directly and the host has to
+     * be one the issuer trusts with credentials.
+     */
+    proxyBaseUrl: import.meta.env.DEV ? here : undefined,
   })
 
   return engine

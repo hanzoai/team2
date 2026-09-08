@@ -199,7 +199,24 @@ class Stand implements Plane {
     const rows = this.docs.get(cls) ?? []
     const id = String(tx.objectId ?? '')
     if (tx._class === Tx.create) {
-      rows.push({ ...(tx.attributes as object), _id: id, _class: cls, space: SPACE, modifiedOn: Date.now() } as Doc)
+      // The same fields the server's own txCreate copies onto the document.
+      // Keeping only `attributes` drops `attachedTo`, and an attached document
+      // that has forgotten what it is attached to is one no read can find —
+      // so a message written here would be applied, broadcast, and invisible.
+      const now = Date.now()
+      rows.push({
+        ...(tx.attributes as object),
+        _id: id,
+        _class: cls,
+        space: String(tx.objectSpace ?? SPACE),
+        attachedTo: tx.attachedTo,
+        attachedToClass: tx.attachedToClass,
+        collection: tx.collection,
+        modifiedBy: tx.modifiedBy,
+        createdBy: tx.createdBy ?? tx.modifiedBy,
+        modifiedOn: now,
+        createdOn: tx.createdOn ?? now,
+      } as unknown as Doc)
     } else if (tx._class === Tx.update) {
       const row = rows.find((r) => r._id === id)
       if (row) Object.assign(row, tx.operations as object, { modifiedOn: Date.now() })

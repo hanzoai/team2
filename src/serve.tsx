@@ -17,7 +17,7 @@ import { Category, nameOf, ref, type Issue as Doc, type Person as Human, type Pr
 import { see as seeNotice, notices } from '~/data/notice.ts'
 import type { Plane } from '~/data/socket.ts'
 import { useSpace } from '~/data/space.tsx'
-import { issues, move, people, project as readProject, statuses } from '~/data/tracker.ts'
+import { issues, move, open, people, project as readProject, statuses } from '~/data/tracker.ts'
 import { serve } from '~/inbox/feed.ts'
 import type { Note, Span } from '~/inbox/note.ts'
 import type { Issue, Source as Board, Status as Column } from '~/tracker/board/model.ts'
@@ -103,6 +103,28 @@ const board = (plane: Plane, space: string): Board => ({
       live = false
       stop()
     }
+  },
+  async add(to, title) {
+    const [work, columns, project] = await Promise.all([
+      issues(plane, space),
+      statuses(plane, space),
+      readProject(plane, space),
+    ])
+    const target = columns.find((c) => (COLUMN[c.category] ?? 'backlog') === to)
+    if (!target) throw new Error(`this project has no ${to} column`)
+    // The identifier is the project's sequence plus one. The platform allocates
+    // it inside a conditional apply so two people creating at once cannot both
+    // take it; that shape is not reachable through a single transaction, so this
+    // is optimistic and the server is the authority. A collision shows up as two
+    // cards sharing an identifier — visible, and recoverable, unlike a lost card.
+    const number = Math.max(project?.sequence ?? 0, ...work.map((i) => i.number)) + 1
+    await open(plane, plane.account ?? '', space, {
+      title,
+      status: target._id,
+      priority: 0,
+      number,
+      after: work.find((i) => i.status === target._id),
+    })
   },
   async move(id, to, before) {
     const work = await issues(plane, space)

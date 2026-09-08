@@ -12,11 +12,16 @@ Regions, and who owns which:
 
 | directory | region |
 |---|---|
-| `src/frame` | the four regions, the rail, the navigator, the address model |
-| `src/board` | the board: breadcrumb, title, tabs, filter, columns, cards |
+| `src/shell` | the four regions, the rail, the navigator frame, the aside |
+| `src/nav` | the tracker's navigator: the standing rows and the projects tree |
+| `src/tracker` | the head — trail, title, views, filter — and the board under it |
 | `src/inbox` | the notification panel's contents |
 | `src/chat` | the channel surface |
 
-`src/frame/surfaces.tsx` is the one declaration of what the product contains: a
+`src/shell/surfaces.ts` is the one declaration of what the product contains: a
 surface is one entry there and is thereafter a rail icon, a navigator and a set
 of addresses.
+
+Published at `team2.hanzo.app`; `hanzo.yml` declares the build and the slug.
+Any screen can be entered in a named state — `?state=realistic` and its four
+siblings stand in for the whole plane, the door included.

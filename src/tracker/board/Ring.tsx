@@ -10,6 +10,8 @@
  * there is no sweep-flag discontinuity at a half turn and no case analysis at
  * the ends: zero is an empty dash and one is a full one.
  */
+import { ring } from './tone.ts'
+
 export const Ring = ({ done, size = 16, width = 2 }: { done: number; size?: number; width?: number }) => {
   const at = Math.min(1, Math.max(0, done))
   const r = (size - width) / 2

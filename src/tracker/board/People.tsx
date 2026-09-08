@@ -1,4 +1,5 @@
-import { Avatar, AvatarFallback, AvatarImage, SizableText, XStack } from '@hanzo/ui'
+import { Avatar, AvatarFallback, AvatarImage, SizableText, XStack, YStack } from '@hanzo/ui'
+import { paint } from '../../theme/theme.ts'
 import type { Person } from './model.ts'
 
 /**
@@ -10,15 +11,19 @@ import type { Person } from './model.ts'
  * which is why it takes a count of how many to show rather than being written
  * twice.
  *
- * The ring is the ground it sits on, so the component takes that colour rather
- * than assuming one: a face on a card and a face on a panel need different
- * rings to read as separated, and guessing is what makes one of them wrong.
+ * Two things here have to be OPAQUE, and every surface token is a white
+ * overlay. The ring that separates one face from the next: cut from the card's
+ * own token it is the colour of the disc beside it. And the disc under a face
+ * with no picture: left translucent, the face below shows through it and the
+ * letters of both run together. So both come from `--face` and the app ground,
+ * carried by a wrapper — the ring is a prop because a face on a light surface
+ * needs the other one.
  */
 export const People = ({
   people,
   size = 28,
   show = 3,
-  ground = '$raised',
+  ground = paint.ground,
 }: {
   people: Person[]
   size?: number
@@ -33,17 +38,18 @@ export const People = ({
   return (
     <XStack items="center" aria-label={`${people.length} assigned`}>
       {seen.map((p, i) => (
-        <Avatar
+        <YStack
           key={p.id}
-          size={size}
           ml={i === 0 ? 0 : step - size}
+          rounded={9999}
           borderWidth={2}
-          borderColor={ground}
-          title={p.name}
+          style={{ backgroundColor: ground, borderColor: ground }}
         >
-          {p.face ? <AvatarImage src={p.face} alt="" /> : null}
-          <AvatarFallback>{initials(p.name)}</AvatarFallback>
-        </Avatar>
+          <Avatar size={size} aria-label={p.name}>
+            {p.face ? <AvatarImage src={p.face} alt="" /> : null}
+            <AvatarFallback>{initial(p.name)}</AvatarFallback>
+          </Avatar>
+        </YStack>
       ))}
       {rest > 0 ? (
         <SizableText fontSize="$2" color="$quiet" ml={6}>
@@ -54,11 +60,10 @@ export const People = ({
   )
 }
 
-/** First letters of the first two words — never more, so the disc stays legible. */
-const initials = (name: string): string =>
-  name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0] ?? '')
-    .join('')
-    .toUpperCase()
+/**
+ * One letter, because these overlap. A second letter sits in the part of the
+ * disc the next face covers, so it is a letter nobody reads — and two of them
+ * side by side spell something neither person is called. The whole name is on
+ * the element for anything that reads names.
+ */
+const initial = (name: string): string => (name[0] ?? '').toUpperCase()

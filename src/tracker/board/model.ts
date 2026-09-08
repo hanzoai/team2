@@ -36,8 +36,13 @@ export interface Issue {
   priority?: Priority
   /** Free tags. Colour comes from `tone()`, never from the tag itself. */
   labels: string[]
-  /** Completion, 0..1. The ring reads this and nothing else. */
-  done: number
+  /**
+   * Completion, 0..1 — or absent where there is nothing to compute it from.
+   * Absent is not zero: an issue with no estimate has unknown progress, and a
+   * ring reading 0% on every card states that no work has been done anywhere.
+   * The ring and its percentage are drawn only when this is a number.
+   */
+  done?: number
   origin?: Origin
   people: Person[]
   files: number
@@ -69,4 +74,6 @@ export const NAME: Record<Status, string> = {
 export interface Source {
   watch(next: (issues: Issue[]) => void, fail: (e: Error) => void): () => void
   move(id: string, to: Status, before?: string): Promise<void>
+  /** Open one in `status`. The new issue arrives through `watch`, like any other. */
+  add(status: Status, title: string): Promise<void>
 }

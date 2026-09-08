@@ -36,8 +36,11 @@ export const move = (issues: Issue[], id: string, to: Status, before?: string): 
   const moved = { ...from, status: to }
   const at = before ? rest.findIndex((i) => i.id === before) : -1
   if (at < 0) {
+    // After the last issue already in `to` — or at the end when `to` is empty,
+    // where `lastIndexOf` answers -1 and index 0 would put it in front of the
+    // whole board instead.
     const tail = rest.map((i) => i.status === to).lastIndexOf(true)
-    return insert(rest, tail + 1, moved)
+    return insert(rest, tail < 0 ? rest.length : tail + 1, moved)
   }
   return insert(rest, at, moved)
 }

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Team</title>
+    <style>
+      /* The two facts only the host document can answer: how tall the app is,
+         and that its one child is a flex item. @hanzo/ui's stylesheet resets and
+         paints everything else, and `Screen` fills its parent by growing, which
+         a block parent never asks it to do — so the whole app renders 0px tall.
+         `dvh` rather than `vh` so collapsing browser chrome cannot crop the
+         bottom of a column off. */
+      #root {
+        display: flex;
+        height: 100dvh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

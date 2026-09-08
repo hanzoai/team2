@@ -1,0 +1,42 @@
+/**
+ * The tracker's categorical colour, defined once.
+ *
+ * @hanzo/design is monochrome by intent: one hue and an opacity ladder, plus
+ * four state colours that all mean a state. A tracker needs colour that means a
+ * *kind* — this label is not that label, this column is not that column — and
+ * there is no such ramp yet, so it is minted here, in one file, and read by
+ * role. These belong in @hanzo/design once a second surface needs them.
+ *
+ * oklch, because the five slots have to look equally spaced rather than be
+ * equally spaced: even hue steps in sRGB put two of them next to each other.
+ * One lightness and one chroma across the ring, so no slot reads as louder than
+ * its neighbours, and all five take the same near-black ink.
+ */
+:root {
+  --tone-0: oklch(0.86 0.09 250); /* blue    */
+  --tone-1: oklch(0.86 0.09 320); /* magenta */
+  --tone-2: oklch(0.86 0.09 40);  /* coral   */
+  --tone-3: oklch(0.86 0.09 95);  /* amber   */
+  --tone-4: oklch(0.86 0.09 165); /* green   */
+
+  /* Priority overrides the ring: not-urgent reads cool, urgent reads warm. */
+  --tone-calm: var(--tone-0);
+  --tone-warn: var(--tone-1);
+
+  /* Every chip is a light fill, so every chip takes one dark ink. */
+  --tone-ink: oklch(0.18 0.01 250);
+
+  /**
+   * The progress arc does not change with its value. A ring that greens as it
+   * fills states completion twice and turns a quantity into a judgement; the
+   * number beside it already says how far along it is.
+   */
+  --tone-arc: oklch(0.72 0.15 40);
+  --tone-track: rgb(255 255 255 / 0.12);
+
+  /* Status is ordered, so these are named rather than hashed. */
+  --status-backlog: oklch(0.72 0.15 40);
+  --status-todo: oklch(0.88 0.005 250);
+  --status-progress: oklch(0.65 0.15 260);
+  --status-done: oklch(0.8 0.15 165);
+}

@@ -1,0 +1,30 @@
+# Hanzo CI/CD — team2. All real config is here; .hanzo/workflows/cicd.yml is
+# triggers and an import of hanzoai/ci.
+
+test:
+  - name: install
+    run: |
+      set -e
+      corepack enable
+      pnpm install --frozen-lockfile
+
+  # `pnpm build` is `tsc --noEmit && vite build`. A vite build that emits
+  # nothing still exits 0, hence the file test.
+  - name: build
+    run: |
+      set -e
+      pnpm build
+      test -s dist/index.html
+
+site:
+  # team2.hanzo.ai. The host resolves today through the proxied *.hanzo.ai
+  # record and Cloudflare terminates TLS on the shared edge certificate, so
+  # claiming it is one Middleware plus one IngressRoute in universe
+  # charts/app/values/hanzo/static-sites.yaml and touches nothing live.
+  #
+  # `on:` defaults to the empty list, and an unnamed branch runs the build,
+  # reports success and ships nothing.
+  slug: team2
+  dir: dist
+  on: [main]
+  build: pnpm build

@@ -1,0 +1,26 @@
+# One version of everything, named once. `@hanzo/ui` peer-depends on the
+# `@hanzogui/*` set at EXACTLY 8.3.1 while npm's latest for those is 8.3.5, so a
+# floating install resolves two trees of gui's core and the theme context breaks
+# across the seam. Pinning is the fix, and it belongs here rather than in
+# package.json so a second app in this repo cannot pin it differently.
+catalog:
+  '@hanzo/font': '1.9.3'
+  '@hanzo/gui': '8.3.1'
+  '@hanzo/iam': '0.21.18'
+  '@hanzo/ui': '8.27.12'
+  '@hanzo/vite': '0.1.4'
+  '@hanzogui/lucide-icons-2': '8.3.1'
+  '@hanzogui/next-theme': '8.3.1'
+  '@types/node': '26.4.1'
+  '@types/react': '19.2.18'
+  '@types/react-dom': '19.2.7'
+  '@vitejs/plugin-react': '^6.1.1'
+  'react': '19.2.8'
+  'react-dom': '19.2.8'
+  'react-hook-form': '^7.87.0'
+  'react-native-web': '^0.21.2'
+  'react-router': '^8.3.1'
+  'typescript': '7.0.2'
+  'vite': '^8.2.2'
+minimumReleaseAgeExclude:
+  - '@hanzo/ui@8.27.12'

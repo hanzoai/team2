@@ -1,0 +1,93 @@
+/**
+ * The roles this product paints with, and the only place a colour is chosen.
+ *
+ * Nearly every line below is a REFERENCE to an @hanzo/design token, not a value.
+ * That is deliberate and it is what makes this file safe: design owns the ground,
+ * the ink ramp, the hairline and the two state hues, it publishes a light column
+ * for every one of them, and a reference inverts with the scheme for free. A
+ * literal here would be a second palette that only looks right in the dark.
+ *
+ * Six lines are values, and they are the honest gap: design is monochrome by
+ * charter — one neutral ladder plus red and green — and a tracker cannot be. A
+ * board needs to say backlog from in-progress at a 8px dot, and a card needs to
+ * carry five or six labels that a reader tells apart at a glance. So this file
+ * mints ONE categorical ramp and nothing else. Its permanent home is
+ * @hanzo/design beside `--state-error`; it lives here until it is published
+ * there, and when it moves these six become references like the rest.
+ *
+ * The ramp is one lightness and one chroma with the hue turned — oklch(.72 .12 h)
+ * — so six categories carry equal visual weight and none shouts. That is the
+ * whole difference between a categorical palette and six colours somebody liked.
+ */
+
+:root {
+  /* ——— surfaces: three rungs, and there is no fourth ——— */
+  --team-ground: var(--background);   /* the app: rail and navigator sit on it */
+  --team-panel: var(--surface-1);     /* the board and the inbox */
+  --team-card: var(--surface-2);      /* a card; an unread row is the same rung */
+
+  /* ——— the hairline. ONE, at a fixed alpha, so it lifts with whatever it
+         lands on. A solid line stops being a lighter line and becomes an
+         unrelated grey the moment the surface under it moves. ——— */
+  --team-rule: var(--border);
+
+  /* ——— ink: three ranks. The reference draws five and measures three —
+         its "muted", "dim" and "placeholder" are one rank at ~28% white. ——— */
+  --team-ink: var(--text-primary);
+  --team-mute: var(--text-tertiary);
+  --team-dim: var(--text-disabled);
+
+  /* ——— the categorical ramp. Six slots, equal weight, assigned by `slot()`
+         in theme.ts and never by hand. ——— */
+  --team-hue-1: oklch(0.72 0.12 258); /* indigo */
+  --team-hue-2: oklch(0.72 0.12 300); /* violet */
+  --team-hue-3: oklch(0.72 0.12 350); /* rose   */
+  --team-hue-4: oklch(0.72 0.12 40);  /* coral  */
+  --team-hue-5: oklch(0.72 0.12 90);  /* gold   */
+  --team-hue-6: oklch(0.72 0.12 165); /* teal   */
+
+  /* A chip is a tint of its own hue with that hue as ink — the dark-native
+     reading, and it keeps a row of six chips quiet where six filled pills
+     would be the loudest thing on the screen. Derived, so a hue moves both. */
+  --team-tint-1: color-mix(in oklab, var(--team-hue-1) 16%, transparent);
+  --team-tint-2: color-mix(in oklab, var(--team-hue-2) 16%, transparent);
+  --team-tint-3: color-mix(in oklab, var(--team-hue-3) 16%, transparent);
+  --team-tint-4: color-mix(in oklab, var(--team-hue-4) 16%, transparent);
+  --team-tint-5: color-mix(in oklab, var(--team-hue-5) 16%, transparent);
+  --team-tint-6: color-mix(in oklab, var(--team-hue-6) 16%, transparent);
+
+  /* ——— the two accents, and they do different jobs ———
+     `accent` is where you are and how many: the active tab, the active
+     breadcrumb, a count badge, a progress arc. Hanzo's accent is its ink, which
+     is why this is `--primary` and not a hue — a white underline under the live
+     tab is what every other Hanzo surface already does.
+
+     `alert` is the one hue that means THIS IS ADDRESSED TO YOU: a mention, an
+     unread you are named in, the bell. It has to separate from every white
+     thing on the screen, which is exactly why it cannot be the accent. */
+  --team-accent: var(--primary);
+  --team-alert: var(--team-hue-4);
+
+  /* ——— the four workflow states. Three defer, one is design's own. ——— */
+  --team-backlog: var(--team-hue-4);
+  --team-todo: var(--text-secondary);
+  --team-doing: var(--team-hue-1);
+  --team-done: var(--state-success);
+
+  /* Priority is TWO tiers, not four: urgent, and everything else. A colour that
+     separates Low from Medium says nothing a reader needs, and spends the one
+     signal that has to survive a glance. Not-urgent carries no hue at all. */
+  --team-urgent: var(--team-alert);
+}
+
+/* Light. The references invert on their own; the minted ramp does not, so it
+   states its own column — a touch darker and a touch stronger, which is what a
+   hue needs to hold against white rather than against near-black. */
+.light {
+  --team-hue-1: oklch(0.55 0.14 258);
+  --team-hue-2: oklch(0.55 0.14 300);
+  --team-hue-3: oklch(0.55 0.14 350);
+  --team-hue-4: oklch(0.58 0.14 40);
+  --team-hue-5: oklch(0.58 0.14 90);
+  --team-hue-6: oklch(0.55 0.14 165);
+}

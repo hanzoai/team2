@@ -14,8 +14,10 @@
  */
 import { Avatar, AvatarFallback, AvatarImage, RelativeTime, SizableText, XStack, YStack } from '@hanzo/ui'
 
+import { PAD } from '~/shell/measure.ts'
 import { chip, gap, paint, ring, round, rung } from '~/theme/theme'
 import type { Note, Span } from './note.ts'
+import { press } from './press.ts'
 
 /** avatar ⌀52img · line pitch 32img · dot ⌀13img · meta 40img below line 2 */
 const FACE = 36
@@ -39,8 +41,14 @@ const initials = (name: string) =>
  * prose. A row of sibling blocks would only ever break at a block boundary,
  * which is how "Elizabeth Reynolds" ends up alone on a line above its verb.
  */
-const Line = ({ spans }: { spans: readonly Span[] }) => (
-  <SizableText size={rung.body} lineHeight={LEAD} color={paint.mute}>
+const Line = ({ spans, clamp, parity }: { spans: readonly Span[]; clamp?: number; parity: string }) => (
+  <SizableText
+    data-parity-key={parity}
+    size={rung.body}
+    lineHeight={LEAD}
+    color={paint.mute}
+    numberOfLines={clamp}
+  >
     {spans.map((s, i) => (
       <SizableText
         key={i}
@@ -63,12 +71,14 @@ export type RowProps = {
 
 export const Row = ({ note, onSee }: RowProps) => (
   <XStack
+    data-parity-key="inbox.row"
+    data-seen={note.seen ? 'yes' : 'no'}
     role="button"
     tabIndex={0}
     aria-label={note.line.map((s) => s.text).join('')}
-    onPress={() => onSee(note.id)}
+    {...press(() => onSee(note.id))}
     cursor="pointer"
-    px={gap.wide}
+    px={PAD}
     py={gap.inset}
     gap={gap.tight}
     // An unread row is an OBJECT on the sheet — the rung a card sits on. That
@@ -85,7 +95,7 @@ export const Row = ({ note, onSee }: RowProps) => (
     hoverStyle={{ background: paint.card }}
     focusVisibleStyle={ring}
   >
-    <Avatar size={FACE}>
+    <Avatar data-parity-key="inbox.face" size={FACE}>
       {note.actor.face ? <AvatarImage src={note.actor.face} alt="" /> : null}
       {/* The categorical ramp, keyed by the name, so one person keeps one
           colour everywhere and nobody writes a per-person table. */}
@@ -98,8 +108,11 @@ export const Row = ({ note, onSee }: RowProps) => (
 
     <YStack flex={1} minW={0} gap={gap.tight}>
       <YStack>
-        <Line spans={note.line} />
-        {note.quote ? <Line spans={note.quote} /> : null}
+        <Line spans={note.line} parity="inbox.line" />
+        {/* The quote clamps to ONE line. The reference ellipsises it mid-word
+            ("Let's discu…") while never truncating the sentence above it, which
+            is what holds every row to the same height whatever was said. */}
+        {note.quote ? <Line spans={note.quote} clamp={1} parity="inbox.quote" /> : null}
       </YStack>
 
       {/* elapsed · place. One line, never two: it is the quietest thing in the
@@ -108,11 +121,20 @@ export const Row = ({ note, onSee }: RowProps) => (
           RelativeTime keeps its own clock and re-renders only itself, so an
           open panel stays honest without the list re-rendering. It types its
           props as `<time>`'s, so the type role comes from the text host around
-          it and `inherit` is what carries it down. */}
-      <XStack items="center" gap={gap.tight} overflow="hidden">
+          it and `inherit` is what carries it down.
+
+          `short` rather than `auto`, and it is a measurement not a taste: the
+          reference writes "10 min ago", the published component's `auto` writes
+          "10 minutes ago", and at this size that is 213 of the 214 the column
+          has — so the project name beside it truncated. `short` writes "10m",
+          which fits with room and says the same thing. Elapsed wording belongs
+          to the component for the whole estate, so the choice is which of its
+          forms to ask for and never a fourth one written here. */}
+      <XStack data-parity-key="inbox.meta" items="center" gap={gap.tight} overflow="hidden">
         <SizableText size={rung.small} lineHeight={META} color={paint.dim}>
           <RelativeTime
             date={new Date(note.at)}
+            format="short"
             style={{ fontSize: 'inherit', lineHeight: 'inherit', color: 'inherit', whiteSpace: 'nowrap' }}
           />
         </SizableText>
@@ -126,9 +148,10 @@ export const Row = ({ note, onSee }: RowProps) => (
     </YStack>
 
     {/* The lane. It holds its width whether or not it draws the dot. */}
-    <YStack width={DOT} shrink={0} pt={(LEAD - DOT) / 2}>
+    <YStack data-parity-key="inbox.lane" width={DOT} shrink={0} pt={(LEAD - DOT) / 2}>
       {note.seen ? null : (
         <YStack
+          data-parity-key="inbox.dot"
           role="img"
           aria-label="unread"
           width={DOT}

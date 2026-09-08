@@ -28,14 +28,19 @@ import {
 import { useState, type ReactNode } from 'react'
 
 import { hideAside } from '~/shell/aside.ts'
+import { PAD } from '~/shell/measure.ts'
 import { gap, paint, ring, round, rung } from '~/theme/theme'
 import { see, useNotes } from './feed.ts'
 import { inTab, TABS, unseen, type Note, type Tab } from './note.ts'
+import { press } from './press.ts'
 import { Row } from './Row.tsx'
 
 /** title 24img above · title→tabs 30img · tab row 57img · rail→list 15img */
 const HEAD = 12
-const BAND = 20
+/** Measured 18.7 between the title's box and the tab row's; the ramp's 16 lands
+ *  the rail at 90 against the reference's 90.7, and a rhythm off the ramp reads
+ *  as no product at all. */
+const BAND = 16
 const TAB = 38
 const LIST = 10
 const MARK = 20
@@ -47,7 +52,7 @@ const label = { all: 'All', task: 'Tasks', chat: 'Chat' } as const
 
 /** A quiet middle, for the states the reference never shows. */
 const Say = ({ children }: { children: ReactNode }) => (
-  <YStack flex={1} items="center" justify="center" p={gap.wide} gap={gap.inset}>
+  <YStack flex={1} items="center" justify="center" p={PAD} gap={gap.inset}>
     {children}
   </YStack>
 )
@@ -75,7 +80,7 @@ const Feed = ({ tab }: { tab: Tab }) => {
           color={paint.ink}
           cursor="pointer"
           textDecorationLine="underline"
-          onPress={feed.reload}
+          {...press(feed.reload)}
           focusVisibleStyle={ring}
         >
           Try again
@@ -95,7 +100,7 @@ const Feed = ({ tab }: { tab: Tab }) => {
     )
 
   return (
-    <ScrollArea flex={1} pt={LIST}>
+    <ScrollArea data-parity-key="inbox.list" flex={1} pt={LIST}>
       <YStack role="list">
         {notes.map((n) => (
           <Row key={n.id} note={n} onSee={see} />
@@ -111,19 +116,19 @@ export const Inbox = () => {
   const notes = feed.data ?? []
 
   return (
-    <YStack flex={1} minH={0}>
-      <XStack px={gap.wide} pt={HEAD} items="center" justify="space-between">
-        <SizableText size={rung.title} fontWeight="500" color={paint.ink}>
+    <YStack data-parity-key="inbox.panel" flex={1} minH={0}>
+      <XStack px={PAD} pt={HEAD} items="center" justify="space-between">
+        <SizableText data-parity-key="inbox.title" size={rung.title} fontWeight="500" color={paint.ink}>
           Inbox
         </SizableText>
         <XStack
+          data-parity-key="inbox.close"
           role="button"
           tabIndex={0}
           aria-label="Close the inbox"
-          onPress={hideAside}
+          {...press(hideAside)}
           width={SHUT}
           height={SHUT}
-          mr={-4}
           items="center"
           justify="center"
           cursor="pointer"
@@ -147,7 +152,7 @@ export const Inbox = () => {
         {/* The rail is the WRAPPER's border rather than the list's, so it spans
             the panel while the tabs stay inset — and the live tab's own 2px
             border sits ON it instead of a pixel above it. */}
-        <YStack borderBottomWidth={1} borderColor={paint.rule}>
+        <YStack data-parity-key="inbox.rail" borderBottomWidth={1} borderColor={paint.rule}>
           <TabsList
             height={TAB}
             self="stretch"
@@ -169,8 +174,13 @@ export const Inbox = () => {
               return (
                 <TabsTrigger
                   key={t}
+                  data-parity-key={`inbox.tab.${t}`}
                   value={t}
                   height="100%"
+                  // gui's tab frame stacks, because the segmented control it
+                  // dresses by default holds one word. This one holds a glyph,
+                  // a word and a count on one line.
+                  flexDirection="row"
                   px={gap.tight}
                   gap="$1.5"
                   items="center"
@@ -191,6 +201,7 @@ export const Inbox = () => {
                   </SizableText>
                   {count > 0 ? (
                     <YStack
+                      data-parity-key="inbox.badge"
                       minW={BADGE}
                       height={BADGE}
                       px={4}

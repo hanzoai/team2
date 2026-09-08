@@ -167,7 +167,16 @@ const note = (row: Awaited<ReturnType<typeof notices>>[number], crowd: Map<strin
 export const Serve = () => {
   const { plane, current } = useSpace()
   useEffect(() => {
-    if (!plane || !current) return
+    // Always serve, even with nothing to serve from. The feed keeps a fixture
+    // as its own default so the region can be developed alone, and a live build
+    // that left it installed would paint five invented notifications beside a
+    // real board — a mock presented as working, which is worse than an empty
+    // panel. Handing it a source that refuses says the true thing instead.
+    if (!plane || !current) {
+      const nothing = () => Promise.reject(new Error('no space is open'))
+      serve({ list: nothing, see: nothing })
+      return
+    }
     const space = current.uuid
     serve({
       async list() {

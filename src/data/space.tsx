@@ -96,7 +96,9 @@ export const Space = ({ children }: { children: ReactNode }) => {
 
   const asked = useRef(false)
   useEffect(() => {
-    if (session !== 'in' || asked.current) return
+    // A fixture stands in for the whole plane, the session included, so it asks
+    // for a space list without one. Same knob, and the only one.
+    if ((session !== 'in' && !fixture.on) || asked.current) return
     asked.current = true
     void (async () => {
       const rows = await fixture.spaces(listSpaces).catch((e: unknown) => e as Error)
@@ -117,7 +119,7 @@ export const Space = ({ children }: { children: ReactNode }) => {
   // Signing out ends the plane and forgets the world. Without this the next
   // person to sign in on this browser reads the previous one's cache.
   useEffect(() => {
-    if (session !== 'out') return
+    if (session !== 'out' || fixture.on) return
     asked.current = false
     setStanding('unknown')
     setAll([])

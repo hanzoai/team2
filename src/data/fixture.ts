@@ -109,12 +109,24 @@ const messages: Message[] = [
   { ...base('m3', Class.message), message: '@everyone the tracker is on the real plane now.', attachedTo: 'c-general', modifiedOn: now - 600_000, modifiedBy: 'p1' },
 ]
 
+/** Five notifications from five different people, because one person's name on
+ *  every row is a mapping bug that a fixture written by one author hides. */
+const notice = (n: number, by: string, body: string, at: number, on: string, viewed: boolean): Notice => ({
+  ...base(`n${n}`, Class.notice),
+  modifiedBy: by,
+  modifiedOn: at,
+  body,
+  attachedTo: on,
+  attachedToClass: on.startsWith('c-') ? Class.message : Class.issue,
+  isViewed: viewed,
+})
+
 const notices: Notice[] = [
-  { ...base('n1', Class.notice), title: 'Elizabeth Reynolds', body: 'mentioned you in a page', isViewed: false, modifiedOn: now - 600_000, attachedTo: 'i3' },
-  { ...base('n2', Class.notice), title: 'Sonya Wolf', body: 'joined Next Platform', isViewed: false, modifiedOn: now - 960_000, attachedTo: 'proj-crm' },
-  { ...base('n3', Class.notice), title: 'Kenny Osinski', body: 'in #general — @everyone Hi there!', isViewed: true, modifiedOn: now - 3_600_000, attachedTo: 'c-general' },
-  { ...base('n4', Class.notice), title: 'Alexey Zinovyev', body: 'added a new tag to the Issues page', isViewed: true, modifiedOn: now - 10_800_000, attachedTo: 'i7' },
-  { ...base('n5', Class.notice), title: 'Billy Christiansen', body: 'changed status CRM-9 to In progress', isViewed: true, modifiedOn: now - 14_400_000, attachedTo: 'i9' },
+  notice(1, 'p1', 'mentioned you in a page', now - 600_000, 'i3', false),
+  notice(2, 'p2', 'joined the Next Platform project', now - 960_000, 'proj-crm', false),
+  notice(3, 'p3', 'in #general — @everyone Hi there!', now - 3_600_000, 'c-general', true),
+  notice(4, 'p4', 'added a new tag to the Issues page', now - 10_800_000, 'i7', true),
+  notice(5, 'p5', 'changed status CRM-9 to In progress', now - 14_400_000, 'i9', true),
 ]
 
 const world = (): Map<string, Doc[]> =>

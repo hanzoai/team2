@@ -33,7 +33,8 @@ export const Column = ({
   over: string | 'end' | null
   onOver: (status: Status, before: string | 'end') => void
   onDrop: (status: Status, before?: string) => void
-  onAdd: (status: Status) => void
+  /** Absent on a board with no project to open an issue in. */
+  onAdd?: (status: Status) => void
   onLift: (issue: Issue) => void
   onLand: () => void
 }) => {
@@ -68,31 +69,35 @@ export const Column = ({
           – {column.issues.length}
         </SizableText>
         <XStack flex={1} />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label={`${column.name} actions`}>
-              <MoreHorizontal size={14} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => onAdd(column.status)}>Add issue</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {onAdd ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label={`${column.name} actions`}>
+                <MoreHorizontal size={14} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => onAdd(column.status)}>Add issue</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
       </XStack>
 
-      <Button
-        variant="ghost"
-        height={36}
-        width="100%"
-        borderWidth={1}
-        borderStyle="dashed"
-        borderColor="$edge"
-        rounded={round.card}
-        aria-label={`Add issue to ${column.name}`}
-        onPress={() => onAdd(column.status)}
-      >
-        <Plus size={16} />
-      </Button>
+      {onAdd ? (
+        <Button
+          variant="ghost"
+          height={36}
+          width="100%"
+          borderWidth={1}
+          borderStyle="dashed"
+          borderColor="$edge"
+          rounded={round.card}
+          aria-label={`Add issue to ${column.name}`}
+          onPress={() => onAdd(column.status)}
+        >
+          <Plus size={16} />
+        </Button>
+      ) : null}
 
       {column.issues.map((issue) => (
         <YStack key={issue.id} role="listitem" gap={gap.tight} onDragOver={hover(issue.id)} onDrop={land(issue.id)}>

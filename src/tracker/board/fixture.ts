@@ -1,20 +1,31 @@
 import type { Source } from './model.ts'
 
 /**
- * A source that never answers, so the board holds at loading.
+ * What a board reads before it has a plane.
+ *
+ * There are three answers and they are not interchangeable: still opening, the
+ * workspace refused, and a person who belongs to no space at all. A board given
+ * one of the others draws an endless skeleton over a refusal, or an empty board
+ * over a space nobody has finished opening — and each of those is a screen that
+ * says something untrue about the state it is in.
  *
  * The fixture WORLD — the issues, the people, the five named states behind
  * `?state=` — lives in `src/data` and is shared with every other region, so the
  * board and the inbox beside it are never two different fictions. This is the
- * one thing that world cannot express: no space is open yet, so there is
- * nothing to read and nothing to say about it either.
- *
- * Loading rather than empty, deliberately. A board with no columns because
- * nothing has answered looks exactly like a board with no columns because the
- * space has none, and only one of those is worth showing a person.
+ * part that world cannot express, because it is about not having reached it.
  */
-export const pending = (): Source => ({
-  watch: () => () => {},
-  move: async () => {},
-  add: async () => {},
+export type Standby = 'opening' | 'refused' | 'nowhere'
+
+const never = () => new Promise<void>(() => {})
+
+export const standby = (state: Standby): Source => ({
+  watch(next, fail) {
+    if (state === 'refused') fail(new Error('Your workspace is not answering.'))
+    if (state === 'nowhere') next([])
+    return () => {}
+  },
+  move: never,
 })
+
+/** Still opening: the board holds at loading, because it has not been told. */
+export const pending = (): Source => standby('opening')

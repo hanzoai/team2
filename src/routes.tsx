@@ -11,10 +11,10 @@
  * table's. A surface reachable from the rail and missing here is a glyph that
  * goes nowhere, which is exactly what one declaration prevents.
  *
- * `/issues` is Kanban's own address as well as the tracker's root, so the
- * default view has one address and not two. The splat ranks last and catches
- * every address this product ever answered and no longer does, so a stale
- * bookmark is a redirect rather than the router's own error page.
+ * A board's default view is the board's own address, so Kanban has one address
+ * and not two. The splat ranks last and catches every address this product ever
+ * answered and no longer does, so a stale bookmark is a redirect rather than
+ * the router's own error page.
  */
 import { EmptyState } from '@hanzo/ui/product'
 import { SquareCheck } from '@hanzogui/lucide-icons-2'
@@ -22,7 +22,9 @@ import type { ReactNode } from 'react'
 import type { RouteObject } from 'react-router'
 import { Navigate, useParams } from 'react-router'
 
-import { Chat } from '~/chat'
+import { useProjects } from '~/serve'
+
+import { Chat, Channels } from '~/chat'
 import { Inbox } from '~/inbox'
 import { Nav } from '~/nav'
 import { Shell } from '~/shell'
@@ -43,23 +45,46 @@ const Page = () => {
   return soon(name, `${name} for one project.`)
 }
 
+/**
+ * Where a visit starts: your first project's board.
+ *
+ * An issue is opened IN a project, so the board that can open one is a
+ * project's — and that is the screen a person came here to work in. Until the
+ * projects answer there is nothing to redirect to, so the shell stands with an
+ * empty main rather than flashing a second screen on the way.
+ */
+const Landing = () => {
+  const projects = useProjects()
+  if (projects.phase === 'loading') return tracker(null)
+  const first = [...(projects.data ?? [])].sort((a, b) => a.name.localeCompare(b.name))[0]
+  return <Navigate to={first ? `/projects/${first._id}/issues` : '/issues'} replace />
+}
+
 const tracker = (view: ReactNode) => (
   <Shell nav={<Nav />} aside={<Inbox />}>
     {view}
   </Shell>
 )
 
+const chat = (view: ReactNode) => (
+  <Shell nav={<Channels />} aside={<Inbox />}>
+    {view}
+  </Shell>
+)
+
 export const routes: RouteObject[] = [
-  { path: '/', element: <Navigate to="/issues" replace /> },
+  { path: '/', element: <Landing /> },
 
   { path: '/issues', element: tracker(<Tracker />) },
   { path: '/issues/:view', element: tracker(<Tracker />) },
   { path: '/mine', element: tracker(soon('My issues', 'Everything assigned to you, across every project.')) },
   { path: '/projects', element: tracker(soon('All projects', 'The projects you are in, and the ones you could join.')) },
+  { path: '/projects/:id/issues', element: tracker(<Tracker />) },
+  { path: '/projects/:id/issues/:view', element: tracker(<Tracker />) },
   { path: '/projects/:id/:page', element: tracker(<Page />) },
 
-  { path: '/chat', element: <Shell nav={null}><Chat /></Shell> },
-  { path: '/chat/:id', element: <Shell nav={null}><Chat /></Shell> },
+  { path: '/chat', element: chat(<Chat />) },
+  { path: '/chat/:id', element: chat(<Chat />) },
 
   { path: '/calendar', element: <Shell nav={null}>{soon('Calendar', 'Meetings, deadlines and the week beside the work.')}</Shell> },
   { path: '/time', element: <Shell nav={null}>{soon('Time', 'What the work took, against what it was estimated at.')}</Shell> },

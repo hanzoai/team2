@@ -8,7 +8,7 @@
  * no plane is not empty, it is unanswered, and saying the first would be a lie
  * a board then paints as a space with no work in it.
  */
-import { Category, Class, key, type Issue, type Person, type Project, type Status } from './model.ts'
+import { Category, Class, key, type Component, type Issue, type Person, type Project, type Status, type Tag } from './model.ts'
 import type { Plane } from './socket.ts'
 import { between, create, update } from './write.ts'
 
@@ -26,8 +26,8 @@ export const project = (plane: Plane, id: string) => plane.one<Project>(Class.pr
  * categories themselves, so the outer order is stated here — it is the same on
  * every board and is not a per-space fact.
  */
-export const statuses = async (plane: Plane, space: string) => {
-  const rows = await plane.find<Status>(Class.status, { space })
+export const statuses = async (plane: Plane, space?: string) => {
+  const rows = await plane.find<Status>(Class.status, space ? { space } : {})
   const rank = new Map<string, number>(ORDER.map((c, i) => [c, i]))
   return rows.sort(
     (a, b) =>
@@ -36,19 +36,35 @@ export const statuses = async (plane: Plane, space: string) => {
   )
 }
 
-export const issues = async (plane: Plane, space: string) => {
-  const rows = await plane.find<Issue>(Class.issue, { space })
+/**
+ * The issues on a board.
+ *
+ * `space` is the PROJECT, which is what the platform means by the word — a
+ * connection is already a workspace and a query never says so. Omitting it is
+ * the All-issues board: every project this person can see, in one set.
+ */
+export const issues = async (plane: Plane, space?: string) => {
+  const rows = await plane.find<Issue>(Class.issue, space ? { space } : {})
   return rows.sort((a, b) => (a.rank ?? '').localeCompare(b.rank ?? '') || a.number - b.number)
 }
 
 export const people = (plane: Plane) => plane.find<Person>(Class.person)
 
+/** Every tag attached to anything on the board. One read for the whole board:
+ *  a read per card is one round trip per card. */
+export const tags = (plane: Plane) => plane.find<Tag>(Class.tag)
+
+/** The components a project is divided into. A card names the one it is in. */
+export const components = (plane: Plane) => plane.find<Component>(Class.component)
+
 /** The keys these reads are held under. The class comes first; see `key`. */
 export const keys = {
   projects: () => key(Class.project),
-  statuses: (space: string) => key(Class.status, space),
-  issues: (space: string) => key(Class.issue, space),
+  statuses: (space?: string) => key(Class.status, space),
+  issues: (space?: string) => key(Class.issue, space),
   people: () => key(Class.person),
+  tags: () => key(Class.tag),
+  components: () => key(Class.component),
 }
 
 /**

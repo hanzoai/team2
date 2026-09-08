@@ -8,7 +8,7 @@
  * like any other, which is why it reaches this browser's other tabs and this
  * person's other devices without anything polling.
  */
-import { Class, key, type Notice } from './model.ts'
+import { Class, key, type Channel, type Issue, type Notice, type Project } from './model.ts'
 import type { Plane } from './socket.ts'
 import { update } from './write.ts'
 
@@ -18,6 +18,32 @@ export const notices = async (plane: Plane, space: string) => {
 }
 
 export const keys = { notices: (space: string) => key(Class.notice, space) }
+
+/**
+ * Where each notification happened, by the id it is attached to.
+ *
+ * The platform stores a reference and lets a presenter name the place. There
+ * are no presenters here, so the three kinds this product paints are resolved
+ * directly: a message names its channel, an issue names its project, and a
+ * project names itself. Anything else has no place, which a row is built to
+ * say — it drops the separator with it rather than painting a bullet after
+ * nothing.
+ */
+export const places = async (plane: Plane, space: string): Promise<Map<string, string>> => {
+  const [channels, work, projects] = await Promise.all([
+    plane.find<Channel>(Class.channel, { space }),
+    plane.find<Issue>(Class.issue),
+    plane.find<Project>(Class.project),
+  ])
+  const named = new Map<string, string>()
+  for (const p of projects) named.set(p._id, p.name)
+  for (const c of channels) named.set(c._id, `#${c.name}`)
+  for (const i of work) {
+    const project = named.get(i.space)
+    if (project) named.set(i._id, project)
+  }
+  return named
+}
 
 /** Reading one. The flag is the platform's own, so every surface agrees. */
 export const see = (plane: Plane, by: string, notice: Notice) =>

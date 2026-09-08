@@ -74,6 +74,13 @@ export const NAME: Record<Status, string> = {
 export interface Source {
   watch(next: (issues: Issue[]) => void, fail: (e: Error) => void): () => void
   move(id: string, to: Status, before?: string): Promise<void>
-  /** Open one in `status`. The new issue arrives through `watch`, like any other. */
-  add(status: Status, title: string): Promise<void>
+  /**
+   * Open one in `status`. The new issue arrives through `watch`, like any
+   * other.
+   *
+   * ABSENT where this board has no project to open an issue in — the All-issues
+   * board across projects is the case. The board reads that and draws no add
+   * control, rather than offering one that refuses when pressed.
+   */
+  add?(status: Status, title: string): Promise<void>
 }

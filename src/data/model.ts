@@ -110,8 +110,30 @@ export type Issue = Doc & {
   comments?: number
   attachments?: number
   labels?: number
+  /**
+   * Everyone following this issue, from `notification:mixin:Collaborators`.
+   * The assignee is one of them; a card draws the set and the assignee first.
+   */
+  collaborators?: string[]
   /** The platform's own ordering within a column. */
   rank?: string
+}
+
+/** A tag on a document. The word is on the reference, so a card paints it. */
+export type Tag = Doc & {
+  attachedTo: string
+  attachedToClass?: string
+  /** The tag's own document, when the space keeps one. */
+  tag?: string
+  title: string
+  color?: number
+}
+
+/** A part of a project. A card names the one it belongs to. */
+export type Component = Doc & {
+  label: string
+  description?: string
+  lead?: string | null
 }
 
 export type Person = Doc & {

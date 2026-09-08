@@ -13,14 +13,17 @@
  */
 import { useEffect, useMemo } from 'react'
 
-import { Category, nameOf, ref, type Issue as Doc, type Person as Human, type Project, type Status } from '~/data/model.ts'
-import { see as seeNotice, notices } from '~/data/notice.ts'
+import { Category, nameOf, ref, type Component, type Issue as Doc, type Person as Human, type Project, type Status, type Tag } from '~/data/model.ts'
+import { see as seeNotice, notices, places } from '~/data/notice.ts'
+import { useRead, type Read } from '~/data/query.ts'
 import type { Plane } from '~/data/socket.ts'
-import { useSpace } from '~/data/space.tsx'
-import { issues, move, open, people, project as readProject, statuses } from '~/data/tracker.ts'
-import { serve } from '~/inbox/feed.ts'
+import { useSpace, type Standing } from '~/data/space.tsx'
+import { components, issues, keys, move, open, people, project as readProject, projects, statuses, tags } from '~/data/tracker.ts'
+import { serve, useUnseen } from '~/inbox/feed.ts'
 import type { Note, Span } from '~/inbox/note.ts'
-import type { Issue, Source as Board, Status as Column } from '~/tracker/board/model.ts'
+import { setNotices, setTodo } from '~/shell'
+import type { Standby } from '~/tracker/board/fixture.ts'
+import type { Issue, Person, Source as Board, Status as Column } from '~/tracker/board/model.ts'
 
 /** A platform category, as the board spells it. */
 const COLUMN: Record<string, Column> = {
@@ -49,29 +52,85 @@ const done = (issue: Doc): number => {
   return Math.max(0, Math.min(1, (issue.reportedTime ?? 0) / estimate))
 }
 
-const card = (
-  issue: Doc,
-  columns: Map<string, Column>,
-  crowd: Map<string, Human>,
-  project: Project | undefined,
-): Issue => {
-  const who = issue.assignee ? crowd.get(issue.assignee) : undefined
-  return {
-    id: issue._id,
-    key: ref(project, issue),
-    title: issue.title,
-    status: columns.get(issue.status) ?? 'backlog',
-    priority: RANK[issue.priority] ?? undefined,
-    // The model stores a label COUNT on the issue and the labels themselves as
-    // separate documents. Reading them is a second query per board, and the
-    // card renders the words rather than the number, so it is left to whoever
-    // needs it rather than approximated with a count nobody can read.
-    labels: [],
-    done: done(issue),
-    people: who ? [{ id: who._id, name: nameOf(who), face: who.avatar ?? undefined }] : [],
-    files: issue.attachments ?? 0,
-    replies: issue.comments ?? 0,
+/** A platform person, as the board draws one. */
+const face = (who: Human): Person => ({ id: who._id, name: nameOf(who), face: who.avatar ?? undefined })
+
+/**
+ * Everyone on a card: the assignee first, then the rest of the collaborators.
+ *
+ * Order is the whole point — the assignee is the one face that must survive
+ * being the only one shown, and a set with no order would put whoever the
+ * mixin listed first in front of them.
+ */
+const crew = (issue: Doc, crowd: Map<string, Human>): Person[] => {
+  const ids = [issue.assignee, ...(issue.collaborators ?? [])].filter((id): id is string => !!id)
+  const seen = new Set<string>()
+  const out: Person[] = []
+  for (const id of ids) {
+    if (seen.has(id)) continue
+    seen.add(id)
+    const who = crowd.get(id)
+    if (who) out.push(face(who))
   }
+  return out
+}
+
+/** What the board reads, gathered once per revision rather than once per card. */
+type World = {
+  columns: Map<string, Column>
+  crowd: Map<string, Human>
+  words: Map<string, string[]>
+  parts: Map<string, string>
+  project: Project | undefined
+}
+
+const card = (issue: Doc, world: World): Issue => ({
+  id: issue._id,
+  key: ref(world.project, issue),
+  title: issue.title,
+  status: world.columns.get(issue.status) ?? 'backlog',
+  priority: RANK[issue.priority] ?? undefined,
+  labels: world.words.get(issue._id) ?? [],
+  done: done(issue),
+  people: crew(issue, world.crowd),
+  origin: issue.component ? named(world.parts.get(issue.component)) : undefined,
+  files: issue.attachments ?? 0,
+  replies: issue.comments ?? 0,
+})
+
+/** A component the board can name, or nothing at all — never a placeholder
+ *  standing where a name was expected. */
+const named = (label: string | undefined) => (label ? { name: label } : undefined)
+
+/** Which board column each of a space's statuses belongs to. */
+const columnsOf = (rows: Status[]) =>
+  new Map(rows.map((c) => [c._id, COLUMN[c.category] ?? 'backlog'] as const))
+
+/**
+ * Opening an issue in a project.
+ *
+ * The identifier is the project's sequence plus one. The platform allocates it
+ * inside a conditional apply so two people creating at once cannot both take
+ * it; that shape is not reachable through a single transaction, so this is
+ * optimistic and the server is the authority. A collision shows up as two cards
+ * sharing an identifier — visible, and recoverable, unlike a lost card.
+ */
+const adder = (plane: Plane, space: string) => async (to: Column, title: string) => {
+  const [work, columns, project] = await Promise.all([
+    issues(plane, space),
+    statuses(plane, space),
+    readProject(plane, space),
+  ])
+  const target = columns.find((c) => (COLUMN[c.category] ?? 'backlog') === to)
+  if (!target) throw new Error(`this project has no ${to} column`)
+  const number = Math.max(project?.sequence ?? 0, ...work.map((i) => i.number)) + 1
+  await open(plane, plane.account ?? '', space, {
+    title,
+    status: target._id,
+    priority: 0,
+    number,
+    after: work.find((i) => i.status === target._id),
+  })
 }
 
 /**
@@ -82,18 +141,35 @@ const card = (
  * because the server echoes a write back to the session that made it. One path,
  * so the two cannot disagree.
  */
-const board = (plane: Plane, space: string): Board => ({
+const board = (plane: Plane, space?: string): Board => ({
   watch(next, fail) {
     let live = true
     const read = () => {
-      void Promise.all([statuses(plane, space), issues(plane, space), people(plane)])
-        .then(async ([columns, work, crowd]) => {
+      void Promise.all([
+        statuses(plane, space),
+        issues(plane, space),
+        people(plane),
+        tags(plane),
+        components(plane),
+      ])
+        .then(async ([columns, work, crowd, marks, parts]) => {
           if (!live) return
-          const project = work.length ? await readProject(plane, space) : undefined
+          const project = space && work.length ? await readProject(plane, space) : undefined
           if (!live) return
-          const byId = new Map(columns.map((c: Status) => [c._id, COLUMN[c.category] ?? 'backlog']))
-          const byPerson = new Map(crowd.map((p) => [p._id, p]))
-          next(work.map((issue) => card(issue, byId, byPerson, project)))
+          const words = new Map<string, string[]>()
+          for (const t of marks as Tag[]) {
+            const held = words.get(t.attachedTo)
+            if (held) held.push(t.title)
+            else words.set(t.attachedTo, [t.title])
+          }
+          const world: World = {
+            columns: columnsOf(columns as Status[]),
+            crowd: new Map(crowd.map((p) => [p._id, p])),
+            words,
+            parts: new Map((parts as Component[]).map((c) => [c._id, c.label])),
+            project,
+          }
+          next(work.map((issue) => card(issue, world)))
         })
         .catch((e: unknown) => live && fail(e instanceof Error ? e : new Error(String(e))))
     }
@@ -104,28 +180,9 @@ const board = (plane: Plane, space: string): Board => ({
       stop()
     }
   },
-  async add(to, title) {
-    const [work, columns, project] = await Promise.all([
-      issues(plane, space),
-      statuses(plane, space),
-      readProject(plane, space),
-    ])
-    const target = columns.find((c) => (COLUMN[c.category] ?? 'backlog') === to)
-    if (!target) throw new Error(`this project has no ${to} column`)
-    // The identifier is the project's sequence plus one. The platform allocates
-    // it inside a conditional apply so two people creating at once cannot both
-    // take it; that shape is not reachable through a single transaction, so this
-    // is optimistic and the server is the authority. A collision shows up as two
-    // cards sharing an identifier — visible, and recoverable, unlike a lost card.
-    const number = Math.max(project?.sequence ?? 0, ...work.map((i) => i.number)) + 1
-    await open(plane, plane.account ?? '', space, {
-      title,
-      status: target._id,
-      priority: 0,
-      number,
-      after: work.find((i) => i.status === target._id),
-    })
-  },
+  // An issue is opened IN a project, so a board across all of them has no
+  // `add` at all and the board reads that rather than being told twice.
+  ...(space ? { add: adder(plane, space) } : {}),
   async move(id, to, before) {
     const work = await issues(plane, space)
     const columns = await statuses(plane, space)
@@ -142,39 +199,104 @@ const board = (plane: Plane, space: string): Board => ({
   },
 })
 
-/** The board's backend, or null while no space is open. */
-export const useBoard = (): Board | null => {
+/**
+ * The board's backend, or null while no space is open.
+ *
+ * `project` names one project's board; without it the board is every project
+ * this person can see. The connection is already the workspace, so that is the
+ * only scope a caller ever states.
+ */
+export const useBoard = (project?: string): Board | null => {
   const { plane, current } = useSpace()
-  return useMemo(() => (plane && current ? board(plane, current.uuid) : null), [plane, current])
+  return useMemo(
+    () => (plane && current ? board(plane, project) : null),
+    [plane, current, project],
+  )
+}
+
+/** The faces a board's head carries: a project's members, or the whole space. */
+export const useCrew = (project?: string): Person[] => {
+  const { plane } = useSpace()
+  const crowd = useRead(keys.people(), () => people(plane!), { enabled: !!plane })
+  const all = useRead(keys.projects(), () => projects(plane!), { enabled: !!plane })
+  const held = project ? (all.data ?? []).find((p) => p._id === project)?.members : undefined
+  const byId = new Map((crowd.data ?? []).map((p) => [p._id, p]))
+  const rows = held ? held.map((id) => byId.get(id)) : (crowd.data ?? [])
+  return rows.filter((p): p is Human => !!p).map(face)
+}
+
+/**
+ * What every region reads before a space is open.
+ *
+ * One mapping, so the board and the inbox beside it can never disagree about
+ * which of the three it is — an endless skeleton over a refusal and a refusal
+ * over a space still opening are the two ways this goes wrong, and they go
+ * wrong in opposite directions.
+ */
+export const standingIs = (standing: Standing): Standby =>
+  standing === 'refused' ? 'refused' : standing === 'homeless' ? 'nowhere' : 'opening'
+
+/** Every project this person is in, in three phases. */
+export const useProjects = (): Read<Project[]> => {
+  const { plane } = useSpace()
+  return useRead(keys.projects(), () => projects(plane!), { enabled: !!plane })
+}
+
+/** A project by id, for whoever has to name one. */
+export const useProject = (id?: string): Project | undefined => {
+  const all = useProjects()
+  return id ? (all.data ?? []).find((p) => p._id === id) : undefined
 }
 
 /**
  * A notification's sentence.
  *
- * The platform stores a notification as a reference plus a type, and the
- * sentence a person reads is composed by whichever presenter renders it — all
- * of which are Svelte components this client does not run. So the sentence here
- * is the two runs the documents actually carry: who acted, and what the
- * notification says. It is honest and it is short of the reference, which
- * writes three runs; closing that means reading the referenced document, and
- * that is a query per row.
+ * The platform stores a reference plus a type and lets a presenter compose the
+ * words; there are no presenters here, so the sentence is the runs the
+ * documents carry — who acted, and what the notification says. Two of those
+ * runs are ENTITIES and the reference emphasises both: the person, and the
+ * thing acted on wherever its name falls in the sentence. Whoever the message
+ * addresses by name carries the alert hue instead, which is the one run that
+ * means it is about you.
+ *
+ * Splitting on a name the document itself supplies is why this is mechanical
+ * rather than a guess about English.
  */
-const sentence = (title: string, body: string): Span[] => {
-  const spans: Span[] = [{ text: title, strong: true }]
-  if (body) spans.push({ text: ` ${body}` })
-  return spans
+const MENTION = /(@[\w.-]+)/g
+
+const runs = (text: string, kind: 'strong' | 'mention'): Span[] =>
+  text ? [{ text, [kind]: true }] : []
+
+/** One sentence, with the place's name and any mention lifted out of it. */
+const sentence = (name: string, body: string, place?: string): Span[] => {
+  const spans: Span[] = [{ text: name, strong: true }]
+  const parts = place ? body.split(place) : [body]
+  parts.forEach((part, i) => {
+    if (i > 0) spans.push(...runs(place!, 'strong'))
+    for (const run of part.split(MENTION)) {
+      if (!run) continue
+      if (run.startsWith('@')) spans.push(...runs(run, 'mention'))
+      else spans.push({ text: run })
+    }
+  })
+  return spans.map((s, i) => (i === 1 && s.text ? { ...s, text: ` ${s.text}` } : s))
 }
 
-const note = (row: Awaited<ReturnType<typeof notices>>[number], crowd: Map<string, Human>): Note => {
+const note = (
+  row: Awaited<ReturnType<typeof notices>>[number],
+  crowd: Map<string, Human>,
+  where: Map<string, string>,
+): Note => {
   const actor = crowd.get(String(row.modifiedBy ?? ''))
   const name = actor ? nameOf(actor) : 'Somebody'
+  const place = where.get(String(row.attachedTo ?? ''))
   return {
     id: row._id,
     kind: String(row.attachedToClass ?? '').startsWith('chunter:') ? 'chat' : 'task',
     actor: { name, face: actor?.avatar ?? undefined },
-    line: sentence(name, row.body ?? row.title ?? ''),
+    line: sentence(name, row.body ?? row.title ?? '', place),
     at: row.modifiedOn,
-    place: '',
+    place,
     seen: row.isViewed,
   }
 }
@@ -187,24 +309,35 @@ const note = (row: Awaited<ReturnType<typeof notices>>[number], crowd: Map<strin
  * not true in another.
  */
 export const Serve = () => {
-  const { plane, current } = useSpace()
+  const { plane, current, standing } = useSpace()
   useEffect(() => {
     // Always serve, even with nothing to serve from. The feed keeps a fixture
     // as its own default so the region can be developed alone, and a live build
     // that left it installed would paint five invented notifications beside a
     // real board — a mock presented as working, which is worse than an empty
-    // panel. Handing it a source that refuses says the true thing instead.
+    // panel. What it is handed instead says which of the three it is, from the
+    // same mapping the board reads.
     if (!plane || !current) {
-      const nothing = () => Promise.reject(new Error('no space is open'))
-      serve({ list: nothing, see: nothing })
+      const held = standingIs(standing)
+      const answer =
+        held === 'refused'
+          ? () => Promise.reject(new Error('Your workspace is not answering.'))
+          : held === 'nowhere'
+            ? () => Promise.resolve([])
+            : () => new Promise<never>(() => {})
+      serve({ list: answer, see: () => Promise.resolve() })
       return
     }
     const space = current.uuid
     serve({
       async list() {
-        const [rows, crowd] = await Promise.all([notices(plane, space), people(plane)])
+        const [rows, crowd, where] = await Promise.all([
+          notices(plane, space),
+          people(plane),
+          places(plane, space),
+        ])
         const byPerson = new Map(crowd.map((p) => [p._id, p]))
-        return rows.map((row) => note(row, byPerson))
+        return rows.map((row) => note(row, byPerson, where))
       },
       async see(id: string) {
         const rows = await notices(plane, space)
@@ -212,6 +345,46 @@ export const Serve = () => {
         if (row && !row.isViewed) await seeNotice(plane, plane.account ?? '', row)
       },
     })
-  }, [plane, current])
+  }, [plane, current, standing])
+
+  return (
+    <>
+      <Waiting />
+      <Left />
+    </>
+  )
+}
+
+/**
+ * The bell's mark.
+ *
+ * The count has to be right while the panel is CLOSED, so it is read from the
+ * feed rather than reported by the panel — a number that only moved while
+ * somebody was looking at it is a stale mark exactly when it matters.
+ */
+const Waiting = () => {
+  const waiting = useUnseen()
+  useEffect(() => setNotices(waiting), [waiting])
+  return null
+}
+
+/**
+ * The rail's gauge: what share of the work is still to do.
+ *
+ * A fact about the tracker, painted on a column the tracker does not own, so it
+ * is published into the shell's sink rather than imported by the rail. Nothing
+ * to count is nothing to say, and the gauge draws an em-dash rather than a
+ * confident zero.
+ */
+const Left = () => {
+  const { plane } = useSpace()
+  const columns = useRead(keys.statuses(), () => statuses(plane!), { enabled: !!plane })
+  const work = useRead(keys.issues(), () => issues(plane!), { enabled: !!plane })
+  const where = columnsOf(columns.data ?? [])
+  const rows = work.data ?? []
+  const left = rows.filter((i) => where.get(i.status) !== 'done').length
+  const share = rows.length ? Math.round((left / rows.length) * 100) : null
+
+  useEffect(() => setTodo(share), [share])
   return null
 }

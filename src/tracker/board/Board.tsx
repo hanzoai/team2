@@ -5,8 +5,7 @@ import { LayoutGrid } from '@hanzogui/lucide-icons-2'
 import { Column, WIDTH } from './Column.tsx'
 import { columns } from './move.ts'
 import { move } from './move.ts'
-import type { Issue, Source, Status } from './model.ts'
-
+import type { Issue, Priority, Source, Status } from './model.ts'
 
 /**
  * The Issues board.
@@ -22,10 +21,13 @@ import type { Issue, Source, Status } from './model.ts'
  * there is one way a card ends up somewhere and no reconciliation between two.
  */
 /** What a new issue is called until someone names it. */
-const NEW = 'New issue'
+export const NEW = 'New issue'
 
 const GAP = 16 // gap.wide — column to column
-const PAD = 20 // the board's own inset
+/** The board's inset, on every side. Measured: the reference's column header
+ *  sits at image 264 and the rule above it at 209, which is this inset plus
+ *  half a header row. */
+const PAD = 24
 
 /**
  * `shrink: 0` on the content is what makes the board scroll rather than clip.
@@ -35,7 +37,11 @@ const PAD = 20 // the board's own inset
  * is cut with no way to reach it. Refusing to shrink is the whole fix.
  */
 
-export const Board = ({ source }: { source: Source }) => {
+export const Board = ({ source, only }: {
+  source: Source
+  /** The priorities showing. Empty is every one of them. */
+  only?: readonly Priority[]
+}) => {
   const [issues, setIssues] = useState<Issue[] | null>(null)
   const [failed, setFailed] = useState<Error | null>(null)
   const [drag, setDrag] = useState<Issue | null>(null)
@@ -63,15 +69,19 @@ export const Board = ({ source }: { source: Source }) => {
     [drag, issues, source],
   )
 
-  const open = (status: Status) => { source.add(status, NEW).catch(setFailed) }
+  // The source says whether this board can open an issue; nothing else does.
+  const add = source.add?.bind(source)
+  const open = add ? (status: Status) => { add(status, NEW).catch(setFailed) } : undefined
 
   if (failed) return <Failed why={failed.message} onRetry={() => setAgain((n) => n + 1)} />
   if (!issues) return <Loading />
-  if (issues.length === 0) return <Nothing onAdd={() => open('backlog')} />
+  if (issues.length === 0) return <Nothing onAdd={open && (() => open('backlog'))} />
+
+  const showing = only?.length ? issues.filter((i) => i.priority && only.includes(i.priority)) : issues
 
   return (
     <ScrollView horizontal contentContainerStyle={{ p: PAD, gap: GAP, shrink: 0 }}>
-      {columns(issues).map((column) => (
+      {columns(showing).map((column) => (
         <Column
           key={column.status}
           column={column}
@@ -103,13 +113,13 @@ const Loading = () => (
   </XStack>
 )
 
-const Nothing = ({ onAdd }: { onAdd: () => void }) => (
+const Nothing = ({ onAdd }: { onAdd?: () => void }) => (
   <YStack p={PAD} items="flex-start">
     <EmptyState
       icon={LayoutGrid}
       title="No issues yet"
       description="Issues you open appear here, one column per status."
-      primary={{ label: 'New issue', onPress: onAdd }}
+      primary={onAdd ? { label: 'New issue', onPress: onAdd } : undefined}
     />
   </YStack>
 )

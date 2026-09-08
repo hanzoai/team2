@@ -22,7 +22,7 @@
  * same write path, the same push, and the same re-read as dragging one in a
  * live space.
  */
-import { Category, Class, Priority, Tx, type Channel, type Doc, type Issue, type Message, type Notice, type Person, type Project, type Status } from './model.ts'
+import { Category, Class, Priority, Tx, type Channel, type Component, type Doc, type Issue, type Message, type Notice, type Person, type Project, type Status, type Tag } from './model.ts'
 import { Socket, type Plane, type Standing, type Wire } from './socket.ts'
 import type { SpaceRow } from './account.ts'
 
@@ -49,58 +49,159 @@ const SPACE = 'fixture'
 const now = Date.UTC(2026, 8, 8)
 const base = (id: string, cls: string): Doc => ({ _id: id, _class: cls, space: SPACE, modifiedOn: now, modifiedBy: 'p1' })
 
-const project: Project = {
-  ...base('proj-crm', Class.project),
-  space: 'core:space:Space',
-  name: 'CRM',
-  identifier: 'CRM',
-  sequence: 12,
-  members: ['p1', 'p2', 'p3', 'p4'],
-}
-
-const statuses: Status[] = [
-  { ...base('st-backlog', Class.status), name: 'Backlog', category: Category.backlog },
-  { ...base('st-todo', Class.status), name: 'To do', category: Category.todo },
-  { ...base('st-doing', Class.status), name: 'In progress', category: Category.doing },
-  { ...base('st-done', Class.status), name: 'Done', category: Category.done },
-]
-
+/** Everyone in the space. `Last,First` is the platform's own sort key. */
 const people: Person[] = [
-  { ...base('p1', Class.person), name: 'Reynolds,Elizabeth' },
-  { ...base('p2', Class.person), name: 'Wolf,Sonya' },
-  { ...base('p3', Class.person), name: 'Osinski,Kenny' },
-  { ...base('p4', Class.person), name: 'Zinovyev,Alexey' },
-  { ...base('p5', Class.person), name: 'Christiansen,Billy' },
-]
+  'Reynolds,Elizabeth',
+  'Wolf,Sonya',
+  'Osinski,Kenny',
+  'Zinovyev,Alexey',
+  'Christiansen,Billy',
+  'Thompson,Warren',
+  'Price,Shelia',
+  'Navarro,Marta',
+  'Okafor,Daniel',
+].map((name, i) => ({ ...base(`p${i + 1}`, Class.person), name }))
 
-const issue = (n: number, title: string, status: string, priority: number, extra: Partial<Issue> = {}): Issue => ({
-  ...base(`i${n}`, Class.issue),
-  title,
-  status,
-  priority,
-  number: n,
-  assignee: people[n % people.length]._id,
-  estimation: 0,
-  ...extra,
+const everyone = people.map((p) => p._id)
+
+const project = (id: string, name: string, sequence: number, members: string[]): Project => ({
+  ...base(`proj-${id}`, Class.project),
+  space: 'core:space:Space',
+  name,
+  identifier: id.toUpperCase(),
+  sequence,
+  members,
 })
 
-const issues: Issue[] = [
-  issue(1, 'Set up cluster monitoring', 'st-backlog', Priority.low, { attachments: 1, labels: 1 }),
-  issue(2, "Collect the Linkedin's integration benchmarks", 'st-backlog', Priority.medium, { labels: 1 }),
-  issue(3, 'Analyze, cluster, and understand search queries', 'st-backlog', Priority.low, { attachments: 3, comments: 10, labels: 2 }),
-  issue(4, 'Sales planning and monitoring of important transactions', 'st-todo', Priority.low, { attachments: 1, comments: 2, labels: 2 }),
-  issue(5, 'Rework the user onboarding', 'st-todo', Priority.medium, { comments: 4, labels: 1 }),
-  issue(6, 'Telephony + call recording', 'st-todo', Priority.medium, {}),
-  issue(7, 'Find the respondents for the moderated testing', 'st-doing', Priority.medium, { labels: 1 }),
-  issue(8, 'Conduct custdev interview w/ existing client', 'st-doing', Priority.medium, { attachments: 1, comments: 24, labels: 1 }),
-  issue(9, 'Add view-resource for MVP Deal Screen', 'st-doing', Priority.urgent, { labels: 2 }),
-  issue(10, 'Ship the seat-count reconciliation', 'st-done', Priority.high, { comments: 6 }),
-  issue(11, 'Retire the second colour table', 'st-done', Priority.low, {}),
+const projects: Project[] = [
+  project('crm', 'CRM', 42, everyone),
+  project('mkt', 'Marketing and PM', 18, everyone.slice(0, 5)),
+  project('next', 'Next Platform', 9, everyone.slice(2, 7)),
+  project('dev', 'Development', 27, everyone.slice(1, 6)),
 ]
+
+/**
+ * The four workflow states, per project — which is where the platform keeps
+ * them: `IssueStatus.space` IS the project, so two projects never share a
+ * column document even when they agree on its name.
+ */
+const COLUMNS = [
+  ['backlog', 'Backlog', Category.backlog],
+  ['todo', 'To do', Category.todo],
+  ['doing', 'In progress', Category.doing],
+  ['done', 'Done', Category.done],
+] as const
+
+const statuses: Status[] = projects.flatMap((p) =>
+  COLUMNS.map(([id, name, category]) => ({
+    ...base(`${p._id}-${id}`, Class.status),
+    space: p._id,
+    name,
+    category,
+  })),
+)
+
+/** The parts of a project a card can name. */
+const components: Component[] = [
+  { ...base('cmp-freelynk', Class.component), space: 'proj-crm', label: 'freelynk' },
+  { ...base('cmp-acme', Class.component), space: 'proj-crm', label: 'acme' },
+  { ...base('cmp-atlas', Class.component), space: 'proj-next', label: 'atlas' },
+]
+
+/**
+ * One row of work.
+ *
+ * `at` is completion as a percentage, which the platform holds as time reported
+ * against time estimated — so it is stored as those two numbers and never as a
+ * third field the model does not have.
+ */
+type Row = {
+  in: string
+  at: (typeof COLUMNS)[number][0]
+  title: string
+  rank: number
+  done?: number
+  tags?: string[]
+  part?: string
+  crew?: number
+  files?: number
+  replies?: number
+}
+
+const WORK: Row[] = [
+  { in: 'crm', at: 'backlog', title: 'Set up cluster monitoring', rank: Priority.low, done: 12, tags: ['Devops'], part: 'cmp-freelynk', crew: 2, files: 1 },
+  { in: 'crm', at: 'backlog', title: 'Analyze, cluster, and understand search queries', rank: Priority.low, done: 0, tags: ['Devops', 'Research'], crew: 3, files: 3, replies: 10 },
+  { in: 'crm', at: 'backlog', title: "Collect the Linkedin's integration benchmarks", rank: Priority.medium, done: 5, tags: ['Marketing'], crew: 1 },
+  { in: 'crm', at: 'backlog', title: 'Split the billing export by seat type', rank: Priority.medium, done: 0, tags: ['Backend'], crew: 2, replies: 3 },
+  { in: 'crm', at: 'backlog', title: 'Decide what a dormant account keeps', rank: Priority.low, tags: ['Research'], crew: 1 },
+  { in: 'crm', at: 'backlog', title: 'Rewrite the import wizard copy', rank: Priority.low, done: 0, tags: ['Design'], crew: 2, files: 2 },
+  { in: 'crm', at: 'backlog', title: 'Measure first-contact latency by region', rank: Priority.medium, done: 8, tags: ['Devops', 'QA'], part: 'cmp-freelynk', crew: 2 },
+
+  { in: 'crm', at: 'todo', title: 'Sales planning and monitoring of important transactions', rank: Priority.low, done: 20, tags: ['Sales', 'Marketing'], part: 'cmp-freelynk', crew: 3, files: 1, replies: 2 },
+  { in: 'crm', at: 'todo', title: 'Rework the user onboarding', rank: Priority.medium, done: 25, tags: ['Design'], crew: 2, replies: 4 },
+  { in: 'crm', at: 'todo', title: 'Telephony + call recording', rank: Priority.medium, done: 0, crew: 1 },
+  { in: 'crm', at: 'todo', title: 'Deduplicate contacts on import', rank: Priority.high, done: 40, tags: ['Backend', 'QA'], crew: 2, files: 1, replies: 6 },
+  { in: 'crm', at: 'todo', title: 'Give the pipeline view a saved filter', rank: Priority.medium, done: 15, tags: ['Frontend'], crew: 2 },
+  { in: 'crm', at: 'todo', title: 'Retire the legacy webhook payload', rank: Priority.low, tags: ['Backend'], crew: 1, replies: 1 },
+
+  { in: 'crm', at: 'doing', title: 'Find the respondents for the moderated testing', rank: Priority.medium, done: 50, tags: ['QA'], crew: 3 },
+  { in: 'crm', at: 'doing', title: 'Conduct custdev interview w/ existing client', rank: Priority.medium, done: 90, tags: ['QA'], crew: 4, files: 1, replies: 24 },
+  { in: 'crm', at: 'doing', title: 'Add view-resource for MVP Deal Screen', rank: Priority.high, done: 35, tags: ['Feature', 'Frontend'], part: 'cmp-acme', crew: 2 },
+
+  { in: 'crm', at: 'done', title: 'Ship the seat-count reconciliation', rank: Priority.high, done: 100, tags: ['Backend'], crew: 2, replies: 6 },
+  { in: 'crm', at: 'done', title: 'Retire the second colour table', rank: Priority.low, done: 100, tags: ['Design'], crew: 1 },
+  { in: 'crm', at: 'done', title: 'Cut the first release of the deal screen', rank: Priority.urgent, done: 100, tags: ['Feature'], part: 'cmp-acme', crew: 3, files: 2, replies: 11 },
+
+  { in: 'mkt', at: 'backlog', title: 'Draft the quarter’s launch calendar', rank: Priority.medium, done: 0, tags: ['Marketing'], crew: 2 },
+  { in: 'mkt', at: 'todo', title: 'Rewrite the pricing page above the fold', rank: Priority.high, done: 30, tags: ['Design', 'Marketing'], crew: 2, replies: 5 },
+  { in: 'mkt', at: 'doing', title: 'Instrument the signup funnel', rank: Priority.medium, done: 60, tags: ['Devops'], crew: 1 },
+
+  { in: 'next', at: 'backlog', title: 'Choose the storage engine for the ledger', rank: Priority.urgent, done: 0, tags: ['Research', 'Backend'], part: 'cmp-atlas', crew: 3, replies: 8 },
+  { in: 'next', at: 'todo', title: 'Sketch the plugin surface', rank: Priority.medium, done: 10, tags: ['Design'], crew: 2 },
+  { in: 'next', at: 'doing', title: 'Prove the migration on a copy of production', rank: Priority.high, done: 45, tags: ['Devops', 'QA'], part: 'cmp-atlas', crew: 2, files: 4 },
+
+  { in: 'dev', at: 'todo', title: 'Cut the flaky tests out of the merge gate', rank: Priority.high, done: 20, tags: ['QA'], crew: 2, replies: 9 },
+  { in: 'dev', at: 'doing', title: 'Move the build off the shared runner', rank: Priority.urgent, done: 70, tags: ['Devops'], crew: 3, files: 1, replies: 12 },
+  { in: 'dev', at: 'done', title: 'Pin every dependency to one version', rank: Priority.medium, done: 100, tags: ['Backend'], crew: 2 },
+]
+
+const rank = (n: number) => String(n + 1000)
+
+const issues: Issue[] = WORK.map((row, i) => ({
+  ...base(`i${i + 1}`, Class.issue),
+  space: `proj-${row.in}`,
+  title: row.title,
+  status: `proj-${row.in}-${row.at}`,
+  priority: row.rank,
+  number: i + 1,
+  rank: rank(i),
+  assignee: people[i % people.length]._id,
+  collaborators: Array.from({ length: row.crew ?? 1 }, (_, k) => people[(i + k) % people.length]._id),
+  component: row.part ?? null,
+  // Completion is time reported against time estimated, which is the only one
+  // the model holds. No estimate is unknown progress, and a card draws no ring.
+  ...(row.done === undefined ? {} : { estimation: 100, reportedTime: row.done }),
+  attachments: row.files ?? 0,
+  comments: row.replies ?? 0,
+  labels: row.tags?.length ?? 0,
+}))
+
+/** The tags themselves. The model keeps a count on the issue and the words in
+ *  their own documents, so a card that paints words reads these. */
+const tags: Tag[] = WORK.flatMap((row, i) =>
+  (row.tags ?? []).map((title) => ({
+    ...base(`t${i + 1}-${title}`, Class.tag),
+    space: `proj-${row.in}`,
+    attachedTo: `i${i + 1}`,
+    attachedToClass: Class.issue,
+    title,
+  })),
+)
 
 const channels: Channel[] = [
   { ...base('c-general', Class.channel), name: 'general', topic: 'Everything that has no better home' },
   { ...base('c-tracker', Class.channel), name: 'tracker', topic: 'The board' },
+  { ...base('c-design', Class.channel), name: 'design', topic: 'What it looks like and why' },
 ]
 
 const messages: Message[] = [
@@ -109,8 +210,8 @@ const messages: Message[] = [
   { ...base('m3', Class.message), message: '@everyone the tracker is on the real plane now.', attachedTo: 'c-general', modifiedOn: now - 600_000, modifiedBy: 'p1' },
 ]
 
-/** Five notifications from five different people, because one person's name on
- *  every row is a mapping bug that a fixture written by one author hides. */
+/** Seven notifications from seven different people, because one person's name
+ *  on every row is a mapping bug that a fixture written by one author hides. */
 const notice = (n: number, by: string, body: string, at: number, on: string, viewed: boolean): Notice => ({
   ...base(`n${n}`, Class.notice),
   modifiedBy: by,
@@ -122,18 +223,22 @@ const notice = (n: number, by: string, body: string, at: number, on: string, vie
 })
 
 const notices: Notice[] = [
-  notice(1, 'p1', 'mentioned you in a page', now - 600_000, 'i3', false),
-  notice(2, 'p2', 'joined the Next Platform project', now - 960_000, 'proj-crm', false),
-  notice(3, 'p3', 'in #general — @everyone Hi there!', now - 3_600_000, 'c-general', true),
-  notice(4, 'p4', 'added a new tag to the Issues page', now - 10_800_000, 'i7', true),
-  notice(5, 'p5', 'changed status CRM-9 to In progress', now - 14_400_000, 'i9', true),
+  notice(1, 'p1', 'mentioned you in a page', now - 600_000, 'i2', false),
+  notice(2, 'p2', 'joined the Next Platform project', now - 960_000, 'proj-next', false),
+  notice(3, 'p3', '@everyone Hi there! Let’s discuss the new onboarding copy', now - 3_600_000, 'c-general', true),
+  notice(4, 'p4', 'added a new tag to the Issues page', now - 10_800_000, 'i14', true),
+  notice(5, 'p5', 'changed status CRM-15 to In progress', now - 14_400_000, 'i15', true),
+  notice(6, 'p6', 'added a new task to the Issues page', now - 28_800_000, 'i8', true),
+  notice(7, 'p7', 'mentioned you in a page', now - 32_400_000, 'i9', true),
 ]
 
 const world = (): Map<string, Doc[]> =>
   new Map<string, Doc[]>([
-    [Class.project, [structuredClone(project)]],
+    [Class.project, structuredClone(projects)],
     [Class.status, structuredClone(statuses)],
     [Class.issue, structuredClone(issues)],
+    [Class.component, structuredClone(components)],
+    [Class.tag, structuredClone(tags)],
     [Class.person, structuredClone(people)],
     [Class.channel, structuredClone(channels)],
     [Class.message, structuredClone(messages)],
@@ -143,10 +248,13 @@ const world = (): Map<string, Doc[]> =>
 const nothing = (): Map<string, Doc[]> =>
   new Map(Object.values(Class).map((c) => [c, [] as Doc[]]))
 
-/** `minimal` is the same world with one column's worth of work in it. */
+/** `minimal` is the same world with one project and one column's worth of work. */
 const trimmed = (): Map<string, Doc[]> => {
   const w = world()
-  w.set(Class.issue, structuredClone(issues.slice(0, 3)))
+  const kept = issues.filter((i) => i.space === 'proj-crm').slice(0, 3)
+  w.set(Class.project, structuredClone(projects.slice(0, 1)))
+  w.set(Class.issue, structuredClone(kept))
+  w.set(Class.tag, structuredClone(tags.filter((t) => kept.some((i) => i._id === t.attachedTo))))
   w.set(Class.message, structuredClone(messages.slice(0, 1)))
   w.set(Class.notice, structuredClone(notices.slice(0, 2)))
   return w

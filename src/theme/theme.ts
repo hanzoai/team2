@@ -97,7 +97,7 @@ export const urgent = (priority: number) => priority === 1 || priority === 2
 export const rank = (priority: number) =>
   urgent(priority)
     ? ({ background: 'var(--team-urgent)', color: 'var(--team-chip-ink)' } as const)
-    : ({ background: 'var(--team-quiet)', color: paint.mute } as const)
+    : ({ background: 'var(--team-quiet)', color: paint.ink } as const)
 
 /**
  * Which gui rung each role lands on. Four regions, one answer.
@@ -119,8 +119,9 @@ export const rung = {
   small: '$2',
   /** A chip. */
   chip: '$1',
-  /** The rail's figure. */
-  figure: '$10',
+  /** The rail's figure. Measured 22 image px of cap, so ~20 — and $10's 32
+   *  overruns the 60px capsule the moment the number reaches three glyphs. */
+  figure: '$7',
 } as const
 
 export const gap = {
